@@ -6,7 +6,7 @@ const isLocalhost = () => {
 export const initializeOneDriveSync = async () => {
   // Just check if backend is reachable
   try {
-    const url = isLocalhost() ? 'http://localhost:3001/api/health' : '/api';
+    const url = isLocalhost() ? 'http://localhost:3001/api/health' : '/api/health';
     const response = await fetch(url);
     if (response.ok) {
       console.log('✅ Backend connected');
@@ -20,7 +20,7 @@ export const initializeOneDriveSync = async () => {
 
 export const saveToOneDrive = async (entries, qaMembers) => {
   try {
-    const url = isLocalhost() ? 'http://localhost:3001/api/save' : '/api';
+    const url = isLocalhost() ? 'http://localhost:3001/api/save' : '/api/save';
 
     const response = await fetch(url, {
       method: 'POST',
@@ -48,7 +48,7 @@ export const saveToOneDrive = async (entries, qaMembers) => {
 
 export const loadFromOneDrive = async () => {
   try {
-    const url = isLocalhost() ? 'http://localhost:3001/api/load' : '/api';
+    const url = isLocalhost() ? 'http://localhost:3001/api/load' : '/api/load';
     const response = await fetch(url);
     const result = await response.json();
 
