@@ -1,14 +1,45 @@
+import dotenv from 'dotenv';
 import express from 'express';
 import cors from 'cors';
 import { CosmosClient } from '@azure/cosmos';
 
+dotenv.config({ path: '.env.local' });
+
 const app = express();
-app.use(cors());
+
+// CORS configuration - must be first
+app.use((req, res, next) => {
+  const allowedOrigins = [
+    'http://localhost:5173',
+    'http://localhost:3000',
+    'https://dsr-two.vercel.app'
+  ];
+
+  const origin = req.headers.origin;
+  if (allowedOrigins.includes(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type');
+  res.header('Access-Control-Allow-Credentials', 'true');
+
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+
+  next();
+});
+
 app.use(express.json());
 
 // Cosmos DB connection
-const connectionString = process.env.COSMOS_CONNECTION_STRING ||
-  'AccountEndpoint=https://prathmeshqa.documents.azure.com:443/;AccountKey=0PKhhPrXuucwoikfQ4cZ7yVQJpTvnx4R7DndSuGc5u98kVZ2FxRFQ9jSaXBC3rbIADtH8j3xS3TGACDboRRIHQ==;';
+const connectionString = process.env.COSMOS_CONNECTION_STRING;
+
+if (!connectionString) {
+  console.error('❌ COSMOS_CONNECTION_STRING environment variable not set');
+  process.exit(1);
+}
 
 const client = new CosmosClient({ connectionString });
 const database = client.database('prathmeshcosmosdbdev');

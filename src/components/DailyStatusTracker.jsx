@@ -14,15 +14,10 @@ export default function DailyStatusTracker() {
     return saved ? JSON.parse(saved) : [];
   };
 
-  const initializeEntries = () => {
-    const saved = localStorage.getItem('dailyEntries');
-    return saved ? JSON.parse(saved) : [];
-  };
-
   const [selectedDate, setSelectedDate] = useState(getTodayDate());
   const [qaMembers, setQaMembers] = useState(() => initializeQaMembers());
   const [newMember, setNewMember] = useState('');
-  const [entries, setEntries] = useState(() => initializeEntries());
+  const [entries, setEntries] = useState([]);  // Always start empty, load from Cosmos DB
   const [dataLoaded, setDataLoaded] = useState(false);
   const [editingId, setEditingId] = useState(null);
   const [editingEntryDate, setEditingEntryDate] = useState(null);
@@ -76,39 +71,43 @@ export default function DailyStatusTracker() {
   }, [qaMembers]);
 
   useEffect(() => {
-    localStorage.setItem('dailyEntries', JSON.stringify(entries));
-    // Sync to OneDrive
-    saveToOneDrive(entries, qaMembers);
-  }, [entries]);
+    // Only save after initial data is loaded
+    if (dataLoaded) {
+      localStorage.setItem('dailyEntries', JSON.stringify(entries));
+      // Sync to Cosmos DB
+      saveToOneDrive(entries, qaMembers);
+    }
+  }, [entries, dataLoaded]);
 
   useEffect(() => {
-    localStorage.setItem('qaMembers', JSON.stringify(qaMembers));
-    // Sync to OneDrive
-    saveToOneDrive(entries, qaMembers);
-  }, [qaMembers]);
+    // Only save after initial data is loaded
+    if (dataLoaded) {
+      localStorage.setItem('qaMembers', JSON.stringify(qaMembers));
+      // Sync to Cosmos DB
+      saveToOneDrive(entries, qaMembers);
+    }
+  }, [qaMembers, dataLoaded]);
 
   // Initialize OneDrive on component mount
   useEffect(() => {
     const initOneDrive = async () => {
       const initialized = await initializeOneDriveSync();
+
+      // Always load data from backend/Cosmos DB
+      const { entries: oneDriveEntries, qaMembers: oneDriveMembers } = await loadFromOneDrive();
+
+      if (oneDriveEntries.length > 0 || oneDriveMembers.length > 0) {
+        setEntries(oneDriveEntries);
+        setQaMembers(oneDriveMembers);
+      }
+
       if (initialized) {
         setSyncStatus('connected');
         const folderPath = await getOneDriveFolder();
         setOneDriveFolderPath(folderPath);
-
-        // Load data from OneDrive on startup
-        const { entries: oneDriveEntries, qaMembers: oneDriveMembers } = await loadFromOneDrive();
-
-        // Use OneDrive data if available, otherwise keep local
-        if (oneDriveEntries.length > 0) {
-          setEntries(oneDriveEntries);
-        }
-        if (oneDriveMembers.length > 0) {
-          setQaMembers(oneDriveMembers);
-        }
-
-        setDataLoaded(true);
       }
+
+      setDataLoaded(true);
 
       // Listen for changes from other windows
       window.addEventListener('onedrive-data-changed', async () => {
