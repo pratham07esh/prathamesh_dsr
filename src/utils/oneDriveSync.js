@@ -6,8 +6,7 @@ const API_URL = window.location.hostname === 'localhost'
 export const initializeOneDriveSync = async () => {
   // Just check if backend is reachable
   try {
-    const url = API_URL === 'http://localhost:3001' ? `${API_URL}/api/health` : '/api/health';
-    const response = await fetch(url);
+    const response = await fetch(`${API_URL}/api/health`);
     if (response.ok) {
       console.log('✅ Backend connected');
       return true;
@@ -20,8 +19,7 @@ export const initializeOneDriveSync = async () => {
 
 export const saveToOneDrive = async (entries, qaMembers) => {
   try {
-    const url = API_URL === 'http://localhost:3001' ? `${API_URL}/api/save` : '/api/save';
-    const response = await fetch(url, {
+    const response = await fetch(`${API_URL}/api/save`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ entries, qaMembers }),
@@ -48,8 +46,7 @@ export const saveToOneDrive = async (entries, qaMembers) => {
 
 export const loadFromOneDrive = async () => {
   try {
-    const url = API_URL === 'http://localhost:3001' ? `${API_URL}/api/load` : '/api/load';
-    const response = await fetch(url);
+    const response = await fetch(`${API_URL}/api/load`);
     const result = await response.json();
 
     if (result.success) {
