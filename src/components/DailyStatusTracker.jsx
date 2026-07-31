@@ -126,6 +126,15 @@ export default function DailyStatusTracker() {
       setApprovedUsers(oneDriveApprovedUsers);
       setPendingRequests(oneDrivePendingRequests);
 
+      // Validate currentUser is still in approved list
+      const storedUser = localStorage.getItem('currentUser');
+      if (storedUser && !oneDriveApprovedUsers.find(u => u.name === storedUser)) {
+        // User was deleted or never existed in database - clear session
+        localStorage.removeItem('currentUser');
+        setCurrentUser(null);
+        setShowNameModal(true);
+      }
+
       if (initialized) {
         setSyncStatus('connected');
         const folderPath = await getOneDriveFolder();
@@ -304,7 +313,7 @@ export default function DailyStatusTracker() {
     });
   };
 
-  const handleNameSubmit = () => {
+  const handleNameSubmit = async () => {
     if (!userName.trim()) {
       alert('Please enter your name');
       return;
@@ -332,6 +341,8 @@ export default function DailyStatusTracker() {
       const userData = { name: userName, approvedAt: new Date().toISOString(), role: 'admin' };
       const updatedUsers = [...approvedUsers, userData];
       setApprovedUsers(updatedUsers);
+      // Save to database immediately
+      await saveToOneDrive(entries, qaMembers, updatedUsers, pendingRequests);
       localStorage.setItem('currentUser', userName);
       setCurrentUser(userName);
       setShowNameModal(false);
@@ -342,6 +353,8 @@ export default function DailyStatusTracker() {
       const request = { name: userName, requestedAt: new Date().toISOString(), status: 'pending' };
       const updatedRequests = [...pendingRequests, request];
       setPendingRequests(updatedRequests);
+      // Save to database immediately
+      await saveToOneDrive(entries, qaMembers, approvedUsers, updatedRequests);
       alert('📋 Access request submitted! Please wait for admin approval.');
       setShowNameModal(false);
       setUserName('');
@@ -356,7 +369,7 @@ export default function DailyStatusTracker() {
     return approvedUsers.find(user => user.name === currentUser)?.role === 'admin';
   };
 
-  const handleChangeRole = (userName, newRole) => {
+  const handleChangeRole = async (userName, newRole) => {
     const adminCount = getAdminUsers().length;
     const userToChange = approvedUsers.find(u => u.name === userName);
 
@@ -369,25 +382,31 @@ export default function DailyStatusTracker() {
       user.name === userName ? { ...user, role: newRole } : user
     );
     setApprovedUsers(updatedUsers);
+    // Save to database immediately
+    await saveToOneDrive(entries, qaMembers, updatedUsers, pendingRequests);
   };
 
-  const handleApproveRequest = (requestName) => {
+  const handleApproveRequest = async (requestName) => {
     const userData = { name: requestName, approvedAt: new Date().toISOString(), role: 'user' };
     const updatedUsers = [...approvedUsers, userData];
-    setApprovedUsers(updatedUsers);
-
     const updatedRequests = pendingRequests.filter(r => r.name !== requestName);
+
+    setApprovedUsers(updatedUsers);
     setPendingRequests(updatedRequests);
+    // Save to database immediately
+    await saveToOneDrive(entries, qaMembers, updatedUsers, updatedRequests);
     alert(`✅ Approved ${requestName}!`);
   };
 
-  const handleRejectRequest = (requestName) => {
+  const handleRejectRequest = async (requestName) => {
     const updatedRequests = pendingRequests.filter(r => r.name !== requestName);
     setPendingRequests(updatedRequests);
+    // Save to database immediately
+    await saveToOneDrive(entries, qaMembers, approvedUsers, updatedRequests);
     alert(`❌ Rejected ${requestName}'s access request.`);
   };
 
-  const handleDeleteUser = (userName) => {
+  const handleDeleteUser = async (userName) => {
     if (!isCurrentUserAdmin()) {
       alert('Only admins can delete users');
       return;
@@ -404,10 +423,12 @@ export default function DailyStatusTracker() {
     if (confirm(`Delete user ${userName}?`)) {
       const updatedUsers = approvedUsers.filter(user => user.name !== userName);
       setApprovedUsers(updatedUsers);
+      // Save to database immediately
+      await saveToOneDrive(entries, qaMembers, updatedUsers, pendingRequests);
       if (currentUser === userName) {
         setCurrentUser(null);
         localStorage.removeItem('currentUser');
-        setShowLoginModal(true);
+        setShowNameModal(true);
       }
     }
   };

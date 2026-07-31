@@ -1,21 +1,17 @@
 {
   "entries": [],
-  "qaMembers": [
-    "QA1",
-    "QA2"
-  ],
+  "qaMembers": [],
   "approvedUsers": [
     {
-      "name": "test_admin",
+      "name": "Alice",
       "role": "admin",
-      "approvedAt": "2026-07-31T00:00:00Z"
+      "approvedAt": "2026-07-31T12:00:00Z"
+    },
+    {
+      "name": "Bob",
+      "role": "user",
+      "approvedAt": "2026-07-31T12:01:30Z"
     }
   ],
-  "pendingRequests": [
-    {
-      "name": "test_user",
-      "requestedAt": "2026-07-31T00:00:00Z",
-      "status": "pending"
-    }
-  ]
+  "pendingRequests": []
 }
