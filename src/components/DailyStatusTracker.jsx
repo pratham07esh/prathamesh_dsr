@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Edit2, Download, Cloud } from 'lucide-react';
+import { Trash2, Edit2, Download, Cloud, Menu, X } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { initializeOneDriveSync, saveToOneDrive, loadFromOneDrive, selectOneDriveFolder, getOneDriveFolder } from '../utils/oneDriveSync';
 
@@ -14,6 +14,8 @@ export default function DailyStatusTracker() {
     return saved ? JSON.parse(saved) : [];
   };
 
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState('home');
   const [selectedDate, setSelectedDate] = useState(getTodayDate());
   const [qaMembers, setQaMembers] = useState(() => initializeQaMembers());
   const [newMember, setNewMember] = useState('');
@@ -34,6 +36,14 @@ export default function DailyStatusTracker() {
   const [oneDriveFolderPath, setOneDriveFolderPath] = useState('');
   const [syncStatus, setSyncStatus] = useState('ready');
 
+  // User authentication states
+  const [currentUser, setCurrentUser] = useState(() => localStorage.getItem('currentUser') || null);
+  const [userName, setUserName] = useState('');
+  const [approvedUsers, setApprovedUsers] = useState([]);
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [showNameModal, setShowNameModal] = useState(!currentUser);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
   const savedQaMembers = initializeQaMembers();
 
   const [formData, setFormData] = useState({
@@ -49,6 +59,7 @@ export default function DailyStatusTracker() {
     trademarkIssues: 0,
     disclosureIssues: 0,
     otherIssues: 0,
+    notes: '',
   });
 
   const totalIssues =
@@ -83,10 +94,23 @@ export default function DailyStatusTracker() {
     // Only save after initial data is loaded
     if (dataLoaded) {
       localStorage.setItem('qaMembers', JSON.stringify(qaMembers));
-      // Sync to Cosmos DB
-      saveToOneDrive(entries, qaMembers);
+      // Sync to database (approvedUsers and pendingRequests saved only to database)
+      saveToOneDrive(entries, qaMembers, approvedUsers, pendingRequests);
     }
-  }, [qaMembers, dataLoaded]);
+  }, [qaMembers, approvedUsers, pendingRequests, dataLoaded]);
+
+  // Handle body overflow when sidebar opens
+  useEffect(() => {
+    if (sidebarOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [sidebarOpen]);
 
   // Initialize OneDrive on component mount
   useEffect(() => {
@@ -94,12 +118,13 @@ export default function DailyStatusTracker() {
       const initialized = await initializeOneDriveSync();
 
       // Always load data from backend/Cosmos DB
-      const { entries: oneDriveEntries, qaMembers: oneDriveMembers } = await loadFromOneDrive();
+      const { entries: oneDriveEntries, qaMembers: oneDriveMembers, approvedUsers: oneDriveApprovedUsers, pendingRequests: oneDrivePendingRequests } = await loadFromOneDrive();
 
-      if (oneDriveEntries.length > 0 || oneDriveMembers.length > 0) {
-        setEntries(oneDriveEntries);
-        setQaMembers(oneDriveMembers);
-      }
+      // Always load from database
+      setEntries(oneDriveEntries);
+      setQaMembers(oneDriveMembers);
+      setApprovedUsers(oneDriveApprovedUsers);
+      setPendingRequests(oneDrivePendingRequests);
 
       if (initialized) {
         setSyncStatus('connected');
@@ -111,9 +136,11 @@ export default function DailyStatusTracker() {
 
       // Listen for changes from other windows
       window.addEventListener('onedrive-data-changed', async () => {
-        const { entries: updatedEntries, qaMembers: updatedMembers } = await loadFromOneDrive();
+        const { entries: updatedEntries, qaMembers: updatedMembers, approvedUsers: updatedApprovedUsers, pendingRequests: updatedPendingRequests } = await loadFromOneDrive();
         setEntries(updatedEntries);
         setQaMembers(updatedMembers);
+        setApprovedUsers(updatedApprovedUsers);
+        setPendingRequests(updatedPendingRequests);
       });
     };
 
@@ -226,6 +253,7 @@ export default function DailyStatusTracker() {
       trademarkIssues: 0,
       disclosureIssues: 0,
       otherIssues: 0,
+      notes: '',
     });
   };
 
@@ -243,6 +271,7 @@ export default function DailyStatusTracker() {
       trademarkIssues: entry.trademarkIssues,
       disclosureIssues: entry.disclosureIssues,
       otherIssues: entry.otherIssues,
+      notes: entry.notes || '',
     });
     setEditingId(entry.id);
     setEditingEntryDate(entry.date);
@@ -271,7 +300,124 @@ export default function DailyStatusTracker() {
       trademarkIssues: '',
       disclosureIssues: '',
       otherIssues: '',
+      notes: '',
     });
+  };
+
+  const handleNameSubmit = () => {
+    if (!userName.trim()) {
+      alert('Please enter your name');
+      return;
+    }
+
+    // Check if user already approved
+    const isApproved = approvedUsers.find(u => u.name === userName);
+    if (isApproved) {
+      localStorage.setItem('currentUser', userName);
+      setCurrentUser(userName);
+      setShowNameModal(false);
+      setUserName('');
+      return;
+    }
+
+    // Check if user already requested access
+    const alreadyRequested = pendingRequests.find(r => r.name === userName);
+    if (alreadyRequested) {
+      alert('You already have a pending access request. Please wait for admin approval.');
+      return;
+    }
+
+    // If no approved users, make first user admin
+    if (approvedUsers.length === 0) {
+      const userData = { name: userName, approvedAt: new Date().toISOString(), role: 'admin' };
+      const updatedUsers = [...approvedUsers, userData];
+      setApprovedUsers(updatedUsers);
+      localStorage.setItem('currentUser', userName);
+      setCurrentUser(userName);
+      setShowNameModal(false);
+      setUserName('');
+      alert('✅ You are the first user - admin access granted!');
+    } else {
+      // Create pending access request
+      const request = { name: userName, requestedAt: new Date().toISOString(), status: 'pending' };
+      const updatedRequests = [...pendingRequests, request];
+      setPendingRequests(updatedRequests);
+      alert('📋 Access request submitted! Please wait for admin approval.');
+      setShowNameModal(false);
+      setUserName('');
+    }
+  };
+
+  const getAdminUsers = () => {
+    return approvedUsers.filter(user => user.role === 'admin');
+  };
+
+  const isCurrentUserAdmin = () => {
+    return approvedUsers.find(user => user.name === currentUser)?.role === 'admin';
+  };
+
+  const handleChangeRole = (userName, newRole) => {
+    const adminCount = getAdminUsers().length;
+    const userToChange = approvedUsers.find(u => u.name === userName);
+
+    if (userToChange?.role === 'admin' && newRole === 'user' && adminCount === 1) {
+      alert('Cannot demote the last admin. Promote another user to admin first.');
+      return;
+    }
+
+    const updatedUsers = approvedUsers.map(user =>
+      user.name === userName ? { ...user, role: newRole } : user
+    );
+    setApprovedUsers(updatedUsers);
+  };
+
+  const handleApproveRequest = (requestName) => {
+    const userData = { name: requestName, approvedAt: new Date().toISOString(), role: 'user' };
+    const updatedUsers = [...approvedUsers, userData];
+    setApprovedUsers(updatedUsers);
+
+    const updatedRequests = pendingRequests.filter(r => r.name !== requestName);
+    setPendingRequests(updatedRequests);
+    alert(`✅ Approved ${requestName}!`);
+  };
+
+  const handleRejectRequest = (requestName) => {
+    const updatedRequests = pendingRequests.filter(r => r.name !== requestName);
+    setPendingRequests(updatedRequests);
+    alert(`❌ Rejected ${requestName}'s access request.`);
+  };
+
+  const handleDeleteUser = (userName) => {
+    if (!isCurrentUserAdmin()) {
+      alert('Only admins can delete users');
+      return;
+    }
+
+    const userToDelete = approvedUsers.find(u => u.name === userName);
+    const adminCount = getAdminUsers().length;
+
+    if (userToDelete?.role === 'admin' && adminCount === 1) {
+      alert('Cannot delete the last admin. Assign admin role to another user first.');
+      return;
+    }
+
+    if (confirm(`Delete user ${userName}?`)) {
+      const updatedUsers = approvedUsers.filter(user => user.name !== userName);
+      setApprovedUsers(updatedUsers);
+      if (currentUser === userName) {
+        setCurrentUser(null);
+        localStorage.removeItem('currentUser');
+        setShowLoginModal(true);
+      }
+    }
+  };
+
+  const handleLogout = () => {
+    if (confirm('Are you sure you want to logout?')) {
+      setCurrentUser(null);
+      localStorage.removeItem('currentUser');
+      setShowNameModal(true);
+    }
   };
 
   const handleFilterByDate = () => {
@@ -450,7 +596,7 @@ export default function DailyStatusTracker() {
     textContent += `${'='.repeat(80)}\n\n`;
 
     dateEntries.forEach((entry) => {
-      textContent += `${entry.ticketNumber} - ${entry.ticketStatement} - ${entry.ticketStatus}\n`;
+      textContent += `${entry.ticketNumber} - ${entry.ticketStatement} - QA Status-${entry.ticketStatus}\n`;
     });
 
     const element = document.createElement('a');
@@ -493,29 +639,84 @@ export default function DailyStatusTracker() {
     XLSX.writeFile(workbook, fileName);
   };
 
-  return (
-    <div className="min-h-screen bg-white p-8">
-      <div className="max-w-full">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex justify-between items-center mb-4">
-            <div>
-              <h1 className="text-4xl font-bold text-black mb-2">Daily Status Report</h1>
-              <p className="text-gray-600">Track daily work progress and manage QA issues</p>
+  // Show name entry modal if user is not logged in
+  if (showNameModal && !currentUser) {
+    return (
+      <div className="flex flex-col min-h-screen bg-white">
+        {/* Name Entry Modal */}
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white border-2 border-black rounded-lg p-8 max-w-md w-full">
+            <h2 className="text-3xl font-bold text-black mb-2">Daily Status Report</h2>
+            <p className="text-gray-600 mb-6">Enter your name to continue</p>
+
+            <div className="mb-6">
+              <input
+                type="text"
+                value={userName}
+                onChange={(e) => setUserName(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && handleNameSubmit()}
+                placeholder="Your name"
+                className="w-full px-4 py-3 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black placeholder-gray-400 text-lg"
+                autoFocus
+              />
             </div>
-            <div className="flex gap-3 items-end">
-              <div className="bg-white">
-                <label className="block text-black font-semibold mb-2 text-sm">Select Date</label>
+
+            <button
+              onClick={handleNameSubmit}
+              className="w-full bg-black text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-800 transition text-lg"
+            >
+              Continue
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`flex flex-col min-h-screen bg-white ${sidebarOpen ? 'overflow-hidden' : ''}`}>
+      {/* Header */}
+      <div className="py-6 px-8 border-b-2 border-gray-300 bg-gradient-to-r from-white to-blue-50 flex items-center gap-8 justify-between shadow-sm" style={{marginLeft: '60px', marginRight: '60px', minHeight: '140px'}}>
+        <div className="flex items-center gap-6">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="p-2 hover:bg-gray-200 rounded-lg transition"
+            title="Toggle menu"
+          >
+            {sidebarOpen ? <X size={40} /> : <Menu size={40} />}
+          </button>
+          <div>
+            <h1 className="text-5xl font-bold text-gray-900">
+              {currentPage === 'home' && 'Daily Status Report'}
+              {currentPage === 'dashboard' && 'Dashboard'}
+              {currentPage === 'qa-management' && 'QA Management'}
+              {currentPage === 'export' && 'Export Data'}
+              {currentPage === 'access-control' && 'Access Control'}
+            </h1>
+            <p className="text-lg text-gray-600 mt-1">
+              {currentPage === 'home' && 'Track daily work progress and manage QA issues'}
+              {currentPage === 'dashboard' && 'Monthly issues summary and statistics'}
+              {currentPage === 'qa-management' && 'Manage QA team members'}
+              {currentPage === 'export' && 'Export your entries in various formats'}
+              {currentPage === 'access-control' && 'Manage approved users and their access'}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-4">
+          {currentPage === 'home' && (
+            <>
+              <div className="bg-white rounded-lg px-6 py-4 border-2 border-gray-300 shadow-md hover:shadow-lg transition">
+                <label className="block text-gray-800 font-bold mb-3 text-base">📅 Select Date</label>
                 <input
                   type="date"
                   value={selectedDate}
                   onChange={(e) => setSelectedDate(e.target.value)}
-                  className="px-4 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black cursor-pointer bg-white"
+                  className="px-4 py-3 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black cursor-pointer bg-white text-lg font-semibold"
                 />
               </div>
               <button
                 onClick={() => setShowBackupModal(true)}
-                className="bg-purple-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-purple-700 transition"
+                className="bg-purple-600 text-white font-bold py-3 px-7 rounded-lg hover:bg-purple-700 transition text-base shadow-md hover:shadow-lg"
                 title="Backup & Restore Data"
               >
                 💾 Backup
@@ -529,66 +730,179 @@ export default function DailyStatusTracker() {
                     alert('✅ OneDrive folder selected and synced!');
                   }
                 }}
-                className={`font-bold py-2 px-4 rounded-lg transition flex items-center gap-2 ${
+                className={`font-bold py-3 px-7 rounded-lg transition flex items-center gap-3 text-base shadow-md hover:shadow-lg ${
                   syncStatus === 'connected'
                     ? 'bg-green-600 text-white hover:bg-green-700'
                     : 'bg-blue-600 text-white hover:bg-blue-700'
                 }`}
                 title="Select OneDrive folder for sync"
               >
-                <Cloud size={18} />
-                {syncStatus === 'connected' ? '☁️ Synced' : '☁️ Sync'}
+                <Cloud size={22} />
+                {syncStatus === 'connected' ? 'Synced' : 'Sync'}
               </button>
+            </>
+          )}
+
+          {/* User Avatar Dropdown */}
+          <div className="relative ml-8 mr-2">
+            <button
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-800 text-white font-bold rounded-full flex items-center justify-center hover:shadow-lg transition text-2xl border-3 border-blue-700 shadow-md"
+              title="User menu"
+            >
+              {currentUser?.charAt(0).toUpperCase()}
+            </button>
+
+            {/* Dropdown Menu */}
+            {showUserMenu && (
+              <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
+                <div className="px-4 py-3 border-b border-gray-200">
+                  <p className="text-gray-700 font-bold text-sm">Logged in as</p>
+                  <p className="text-gray-900 font-bold text-base">{currentUser}</p>
+                </div>
+                <button
+                  onClick={() => {
+                    handleLogout();
+                    setShowUserMenu(false);
+                  }}
+                  className="w-full text-left px-4 py-3 text-red-600 font-bold hover:bg-red-50 transition flex items-center gap-2 text-base"
+                >
+                  🚪 Logout
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Spacer */}
+      <div className="h-6 bg-gray-50"></div>
+
+      {/* Main flex container */}
+      <div className="flex flex-1">
+        {/* Sidebar Overlay */}
+        {sidebarOpen && (
+          <>
+            {/* Background Overlay */}
+            <div
+              className="fixed inset-0 bg-white bg-opacity-50 z-40 transition-opacity duration-300"
+              onClick={() => setSidebarOpen(false)}
+              style={{top: '164px'}}
+            ></div>
+            {/* Sidebar */}
+            <div className="fixed w-80 bg-white shadow-2xl z-50 overflow-y-auto border-r-2 border-gray-200 flex flex-col" style={{top: '164px', bottom: 0, left: '60px', right: '60px'}}>
+              {/* Header */}
+              <div className="bg-gradient-to-r from-white to-blue-50 px-8 py-8 border-b-2 border-gray-200">
+                <h1 className="text-gray-900 text-3xl font-bold">Navigation</h1>
+                <p className="text-gray-600 text-base mt-2">Access all sections</p>
+              </div>
+
+              {/* Navigation Items */}
+              <nav className="p-6 space-y-3 flex-1">
+                {[
+                  { id: 'home', label: 'Home', icon: '🏠' },
+                  { id: 'dashboard', label: 'Dashboard', icon: '📊' },
+                  { id: 'qa-management', label: 'QA Management', icon: '👥' },
+                  { id: 'export', label: 'Export Data', icon: '📥' },
+                  { id: 'access-control', label: 'Access Control', icon: '🔐' },
+                ].map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => {
+                      setCurrentPage(item.id);
+                      setSidebarOpen(false);
+                    }}
+                    className={`w-full text-left px-6 py-4 rounded-lg transition-all duration-300 font-semibold text-lg flex items-center gap-4 border-2 ${
+                      currentPage === item.id
+                        ? 'bg-blue-600 text-white border-blue-600 shadow-lg'
+                        : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:shadow-md'
+                    }`}
+                  >
+                    <span className="text-2xl">{item.icon}</span>
+                    <span>{item.label}</span>
+                  </button>
+                ))}
+              </nav>
+
+              {/* Divider */}
+              <div className="px-6 py-2">
+                <div className="h-px bg-gray-200"></div>
+              </div>
+
+              {/* Footer */}
+              <div className="bg-gradient-to-r from-white to-gray-50 border-t-2 border-gray-200 px-6 py-6">
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="w-full bg-gray-200 text-gray-900 font-bold py-3 px-4 rounded-lg hover:bg-gray-300 transition-all duration-300 text-base"
+                >
+                  ✕ Close
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Main content area */}
+        <div className="flex-1 p-8">
+          <div className="max-w-full mx-auto" style={{marginLeft: '60px', marginRight: '60px'}}>
+
+        {/* HOME PAGE */}
+        {currentPage === 'home' && (
+          <>
+        {/* Header Controls */}
+        <div className="mb-8" style={{marginLeft: '60px', marginRight: '60px'}}>
+          <div className="flex justify-between items-center mb-4">
+            <div className="flex gap-3 items-end">
             </div>
           </div>
         </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+         
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-12" style={{marginLeft: '60px', marginRight: '60px'}}>
           {/* Left Column - Form */}
           <div className="lg:col-span-2">
             {/* Main Form Card */}
-            <div className="bg-white border-2 border-gray-200 rounded-lg p-6 mb-6">
-              <h2 className="text-2xl font-bold text-black mb-6"></h2>
+            <div className="bg-white border border-gray-300 rounded-xl p-10 mb-8 shadow-lg hover:shadow-xl transition">
+              <h2 className="text-3xl font-bold text-black mb-6"></h2>
 
               {/* Ticket Info */}
-              <div className="mb-6">
-                <label className="block text-black font-semibold mb-2">Ticket Number <span className="text-red-600">*</span></label>
+              <div className="mb-8">
+                <label className="block text-gray-900 font-bold mb-3 text-lg">Ticket Number <span className="text-red-600">*</span></label>
                 <input
                   type="text"
                   name="ticketNumber"
                   value={formData.ticketNumber}
                   onChange={handleInputChange}
-                  placeholder="Enter Ticket number"
+                  placeholder="Enter ticket number"
                   required
-                  className="w-full px-4 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black placeholder-gray-400"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black placeholder-gray-500 text-lg"
                 />
               </div>
 
               {/* Ticket Statement */}
-              <div className="mb-6">
-                <label className="block text-black font-semibold mb-2">Ticket Statement <span className="text-red-600">*</span></label>
+              <div className="mb-8">
+                <label className="block text-gray-900 font-bold mb-3 text-lg">Ticket Statement <span className="text-red-600">*</span></label>
                 <textarea
                   name="ticketStatement"
                   value={formData.ticketStatement}
                   onChange={handleInputChange}
-                  placeholder="Enter Ticket Statement"
-                  rows="1"
+                  placeholder="Describe the ticket"
+                  rows="2"
                   required
-                  className="w-full px-4 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black placeholder-gray-400"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black placeholder-gray-500 text-lg resize-none"
                 />
               </div>
 
               {/* Dropdowns Row */}
-              <div className="grid grid-cols-2 gap-4 mb-6">
+              <div className="grid grid-cols-2 gap-6 mb-8">
                 <div>
-                  <label className="block text-black font-semibold mb-2">QA Team Member</label>
+                  <label className="block text-gray-900 font-bold mb-3 text-lg">QA Team Member</label>
                   <select
                     name="qaTeamMember"
                     value={formData.qaTeamMember}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black text-lg"
                   >
-                    <option value="">-- Select QA Member --</option>
+                    <option value="">Select QA Member</option>
                     {qaMembers.map(member => (
                       <option key={member} value={member}>{member}</option>
                     ))}
@@ -596,14 +910,14 @@ export default function DailyStatusTracker() {
                 </div>
 
                 <div>
-                  <label className="block text-black font-semibold mb-2">Ticket Status</label>
+                  <label className="block text-gray-900 font-bold mb-3 text-lg">Ticket Status</label>
                   <select
                     name="ticketStatus"
                     value={formData.ticketStatus}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black text-lg"
                   >
-                    <option value=""></option>
+                    <option value="">Select Status</option>
                     <option value="First Pass">First Pass</option>
                     <option value="Issues Reported">Issues Reported</option>
                     <option value="PASS">PASS</option>
@@ -615,11 +929,24 @@ export default function DailyStatusTracker() {
                 </div>
               </div>
 
+              {/* Notes */}
+              <div className="mb-8">
+                <label className="block text-gray-900 font-bold mb-3 text-lg">Notes</label>
+                <textarea
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleInputChange}
+                  placeholder="Add any additional notes (optional)"
+                  rows="3"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black placeholder-gray-500 text-lg resize-none"
+                />
+              </div>
+
               {/* Add Entry Button */}
-              <div className="mt-6">
+              <div className="mt-10">
                 <button
                   onClick={handleAddEntry}
-                  className="w-full bg-black text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-800 transition text-lg"
+                  className="w-full bg-blue-600 text-white font-bold py-4 px-6 rounded-lg hover:bg-blue-700 transition text-base shadow-md hover:shadow-lg"
                 >
                   {editingId ? '✅ Update Entry' : '➕ Add Daily Work'}
                 </button>
@@ -643,13 +970,13 @@ export default function DailyStatusTracker() {
           {/* Right Column - Stats */}
           <div>
             {/* Summary Section */}
-            <div className="bg-gradient-to-br from-indigo-50 to-purple-50 rounded-lg p-6 sticky top-8 border-2 border-indigo-200 mb-6 shadow-md">
-              <h3 className="text-2xl font-bold text-indigo-900 mb-5 flex items-center gap-2">📊 Summary</h3>
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-8 sticky top-8 border border-blue-300 shadow-lg">
+              <h3 className="text-xl font-bold text-blue-900 mb-6 flex items-center gap-2">📊 Summary</h3>
 
-              <div className="space-y-3">
-                <div className="bg-white rounded-lg p-4 border-2 border-indigo-100 hover:shadow-md transition hover:border-indigo-300">
-                  <p className="text-indigo-600 text-xs font-semibold uppercase tracking-wider mb-2">📅 Selected Date</p>
-                  <p className="text-2xl font-bold text-indigo-900">
+              <div className="space-y-4">
+                <div className="bg-white rounded-lg p-5 border border-blue-100 hover:shadow-md transition">
+                  <p className="text-blue-600 text-xs font-bold uppercase tracking-wider mb-2">📅 Selected Date</p>
+                  <p className="text-lg font-bold text-blue-900">
                     {new Date(selectedDate).toLocaleDateString('en-IN', {
                       weekday: 'short',
                       year: 'numeric',
@@ -659,19 +986,19 @@ export default function DailyStatusTracker() {
                   </p>
                 </div>
 
-                <div className="bg-white rounded-lg p-4 border-2 border-indigo-100 hover:shadow-md transition hover:border-indigo-300">
-                  <p className="text-indigo-600 text-xs font-semibold uppercase tracking-wider mb-2">📋 Total Entries</p>
-                  <p className="text-3xl font-bold text-indigo-900">{entries.length}</p>
+                <div className="bg-white rounded-lg p-5 border border-blue-100 hover:shadow-md transition">
+                  <p className="text-blue-600 text-xs font-bold uppercase tracking-wider mb-2">📋 Total Entries</p>
+                  <p className="text-3xl font-bold text-blue-900">{entries.length}</p>
                 </div>
 
-                <div className="bg-white rounded-lg p-4 border-2 border-indigo-100 hover:shadow-md transition hover:border-indigo-300">
-                  <p className="text-indigo-600 text-xs font-semibold uppercase tracking-wider mb-2">👥 QA Members</p>
-                  <p className="text-3xl font-bold text-indigo-900">{qaMembers.length}</p>
+                <div className="bg-white rounded-lg p-5 border border-blue-100 hover:shadow-md transition">
+                  <p className="text-blue-600 text-xs font-bold uppercase tracking-wider mb-2">👥 QA Members</p>
+                  <p className="text-3xl font-bold text-blue-900">{qaMembers.length}</p>
                 </div>
 
                 {entries.length > 0 && (
-                  <div className="bg-gradient-to-r from-orange-100 to-red-100 rounded-lg p-4 border-2 border-orange-300">
-                    <p className="text-orange-700 text-xs font-semibold uppercase tracking-wider mb-2">⚠️ Overall Total Issues</p>
+                  <div className="bg-gradient-to-r from-orange-100 to-red-100 rounded-lg p-5 border border-orange-300">
+                    <p className="text-orange-700 text-xs font-bold uppercase tracking-wider mb-2">⚠️ Total Issues</p>
                     <p className="text-3xl font-bold text-orange-900">
                       {entries.reduce((sum, entry) => sum + entry.totalIssues, 0)}
                     </p>
@@ -680,298 +1007,51 @@ export default function DailyStatusTracker() {
               </div>
             </div>
 
-            {/* QA Team Management Card */}
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-6 border-2 border-green-200 shadow-md">
-              <h3 className="text-2xl font-bold text-green-900 mb-5 flex items-center gap-2">👥 QA Team Management</h3>
-
-              <div className="mb-5 flex gap-2">
-                <input
-                  type="text"
-                  value={newMember}
-                  onChange={(e) => setNewMember(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && handleAddMember()}
-                  placeholder="Enter member name"
-                  className="flex-1 px-4 py-2 border-2 border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-black placeholder-gray-500 text-sm font-medium bg-white hover:border-green-400 transition"
-                />
-                <button
-                  onClick={handleAddMember}
-                  className="bg-green-600 text-white font-bold px-6 py-2 rounded-lg hover:bg-green-700 transition text-sm shadow-md hover:shadow-lg"
-                >
-                  ➕ Add
-                </button>
-              </div>
-
-              <div className="flex flex-wrap gap-3">
-                {qaMembers.length === 0 ? (
-                  <p className="text-gray-500 text-sm italic py-4 px-2 w-full text-center">No team members added yet</p>
-                ) : (
-                  qaMembers.map(member => (
-                    <div key={member} className="bg-green-600 text-white px-4 py-2 rounded-full flex items-center gap-3 text-sm font-semibold shadow-md hover:shadow-lg transition group">
-                      <span className="bg-white text-green-700 px-3 py-1 rounded-full font-bold text-xs">{member}</span>
-                      <button
-                        onClick={() => handleDeleteMember(member)}
-                        className="text-white hover:text-red-300 transition opacity-70 group-hover:opacity-100 font-bold"
-                        title="Delete member"
-                      >
-                        ✕
-                      </button>
-                    </div>
-                  ))
-                )}
-              </div>
-
-              {qaMembers.length > 0 && (
-                <div className="mt-4 pt-4 border-t-2 border-green-300">
-                  <p className="text-green-700 text-xs font-semibold uppercase tracking-wider">Total Members: <span className="text-green-900 text-lg font-bold">{qaMembers.length}</span></p>
-                </div>
-              )}
-            </div>
           </div>
         </div>
-
-        {/* Monthly Export Section */}
-        <div className="mt-8">
-          <div className="bg-white border-2 border-gray-200 rounded-lg p-6">
-            <h2 className="text-2xl font-bold text-black mb-4">Monthly Data Export</h2>
-
-            <div className="flex flex-col lg:flex-row gap-3 items-end bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border-2 border-blue-200">
-              <div className="flex-1 min-w-0">
-                <label className="block text-black font-semibold mb-2 text-xs uppercase tracking-wider">📅 From Date</label>
-                <input
-                  type="date"
-                  value={monthlyExportFromDate}
-                  onChange={(e) => setMonthlyExportFromDate(e.target.value)}
-                  className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-black cursor-pointer bg-white font-medium text-sm"
-                />
-              </div>
-
-              <div className="flex-1 min-w-0">
-                <label className="block text-black font-semibold mb-2 text-xs uppercase tracking-wider">📅 To Date</label>
-                <input
-                  type="date"
-                  value={monthlyExportToDate}
-                  onChange={(e) => setMonthlyExportToDate(e.target.value)}
-                  className="w-full px-3 py-2 border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-black cursor-pointer bg-white font-medium text-sm"
-                />
-              </div>
-
-              <div className="flex gap-2 w-full lg:w-auto">
-                <button
-                  onClick={handleFilterByMonth}
-                  className="flex-1 lg:flex-none bg-blue-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-blue-700 transition text-sm"
-                >
-                  🔍 Filter
-                </button>
-
-                <button
-                  onClick={() => {
-                    setMonthlyExportFromDate('');
-                    setMonthlyExportToDate('');
-                    setMonthlyFilteredEntries([]);
-                    setFilteredEntries([]);
-                  }}
-                  className="flex-1 lg:flex-none bg-gray-400 text-white font-bold py-2 px-4 rounded-lg hover:bg-gray-500 transition text-sm"
-                  title="Clear monthly filter"
-                >
-                  ✕ Clear
-                </button>
-
-                <button
-                  onClick={handleExportMonthlyData}
-                  disabled={monthlyFilteredEntries.length === 0}
-                  className="flex-1 lg:flex-none bg-green-600 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed text-sm flex items-center justify-center gap-1"
-                >
-                  <Download size={16} />
-                  Export Monthly
-                </button>
-              </div>
-            </div>
-
-            {monthlyFilteredEntries.length > 0 && (
-              <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-4 mb-4">
-                <p className="text-black font-semibold">Filtered Results: <span className="text-blue-600">{monthlyFilteredEntries.length}</span> entries found</p>
-              </div>
-            )}
-          </div>
-        </div>
+        {/* Spacer */}
+      <div className="h-12 bg-gray-50"></div>
 
         {/* Entries Table */}
         {entries.length > 0 && (
-          <div className="mt-8">
-            <div className="bg-white border-2 border-gray-200 rounded-lg p-6">
-              {/* Header Section */}
-              <div className="mb-8">
-                <div className="flex justify-between items-start mb-4">
+          <div className="mt-12" style={{marginLeft: '60px', marginRight: '60px'}}>
+            <div className="bg-white border border-gray-300 rounded-xl p-8 shadow-lg">
+              <h2 className="text-2xl font-bold text-gray-800 mb-8">All Entries</h2>
+
+              {/* Search Section */}
+              <div className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 p-6 rounded-lg border border-blue-300">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
                   <div>
-                    <h2 className="text-3xl font-bold text-black">Daily Work Entries</h2>
-                    <p className="text-gray-600 text-sm mt-1">View and manage all your daily work entries</p>
+                    <label className="block text-gray-700 font-bold mb-2 text-sm">🔍 Search by Ticket</label>
+                    <input
+                      type="text"
+                      value={ticketSearch}
+                      onChange={(e) => setTicketSearch(e.target.value)}
+                      placeholder="Enter ticket number..."
+                      className="w-full px-4 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black placeholder-gray-400 text-sm"
+                    />
                   </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold text-blue-600">
-                      {(filteredEntries.length > 0 ? filteredEntries : entries)
-                        .filter(entry =>
-                          entry.ticketNumber.toLowerCase().includes(ticketSearch.toLowerCase()) &&
-                          entry.qaTeamMember.toLowerCase().includes(qaNameSearch.toLowerCase())
-                        ).length}
-                    </p>
-                    <p className="text-gray-600 text-xs">
-                      {ticketSearch || qaNameSearch ? 'Search' : (filteredEntries.length > 0 ? 'Filtered' : 'Total')} Entries
-                    </p>
-                  </div>
-                </div>
-                {filteredEntries.length > 0 && (
-                  <div className="bg-blue-50 border-l-4 border-blue-600 p-3 rounded">
-                    <p className="text-blue-800 font-semibold text-sm">🔍 Showing {filteredEntries.length} filtered entries</p>
-                  </div>
-                )}
-              </div>
-
-              {/* Search and Filter Section - One Line */}
-              <div className="mb-8 bg-gradient-to-r from-blue-50 to-indigo-50 p-4 rounded-lg border-2 border-blue-200">
-                <div className="flex flex-col lg:flex-row gap-3 items-end justify-between">
-
-                  {/* Left Side - Searches */}
-                  <div className="flex gap-3 flex-1 min-w-0">
-                    <div className="flex-1">
-                      <label className="block text-black font-semibold mb-2 text-xs uppercase tracking-wider">🔍 Search Ticket</label>
-                      <input
-                        type="text"
-                        value={ticketSearch}
-                        onChange={(e) => setTicketSearch(e.target.value)}
-                        placeholder="Ticket number..."
-                        className="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-black placeholder-gray-500 font-medium"
-                      />
-                    </div>
-
-                    <div className="flex-1">
-                      <label className="block text-black font-semibold mb-2 text-xs uppercase tracking-wider">👤 Search QA Name</label>
-                      <input
-                        type="text"
-                        value={qaNameSearch}
-                        onChange={(e) => setQaNameSearch(e.target.value)}
-                        placeholder="QA member name..."
-                        className="w-full px-4 py-2 border-2 border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-black placeholder-gray-500 font-medium"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Right Side - Date and Filters */}
-                  <div className="flex flex-col sm:flex-row gap-2 items-end w-full lg:w-auto">
-                    <div className="sm:w-48">
-                      <label className="block text-black font-semibold mb-2 text-xs uppercase tracking-wider">📅 Date</label>
-                      <input
-                        type="date"
-                        value={filterByDate}
-                        onChange={(e) => setFilterByDate(e.target.value)}
-                        className="w-full px-3 py-2 border-2 border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-black cursor-pointer bg-white font-medium text-sm"
-                      />
-                    </div>
-
-                    <div className="flex gap-2 flex-wrap">
-                      <button
-                        onClick={handleFilterByDate}
-                        className="bg-blue-600 text-white font-bold py-2 px-3 rounded-lg hover:bg-blue-700 transition text-sm"
-                        title="Apply filter"
-                      >
-                        🔍 Filter
-                      </button>
-
-                      <button
-                        onClick={() => {
-                          setFilterByDate('');
-                          setFilteredEntries([]);
-                          setTicketSearch('');
-                          setQaNameSearch('');
-                        }}
-                        className="bg-gray-400 text-white font-bold py-2 px-3 rounded-lg hover:bg-gray-500 transition text-sm"
-                        title="Clear all filters"
-                      >
-                        ✕ Clear
-                      </button>
-
-                      <button
-                        onClick={handleExportDailyEntries}
-                        className="bg-green-600 text-white font-bold py-2 px-3 rounded-lg hover:bg-green-700 transition text-sm flex items-center gap-1"
-                        title="Download as Excel"
-                      >
-                        <Download size={16} />
-                        Export
-                      </button>
-
-                      <button
-                        onClick={handleExportToText}
-                        className="bg-purple-600 text-white font-bold py-2 px-3 rounded-lg hover:bg-purple-700 transition text-sm"
-                        title="Download as Text"
-                      >
-                        📄 Text
-                      </button>
-                    </div>
+                  <div>
+                    <label className="block text-gray-700 font-bold mb-2 text-sm">👤 Search by QA Member</label>
+                    <input
+                      type="text"
+                      value={qaNameSearch}
+                      onChange={(e) => setQaNameSearch(e.target.value)}
+                      placeholder="Enter QA member name..."
+                      className="w-full px-4 py-2 border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black placeholder-gray-400 text-sm"
+                    />
                   </div>
                 </div>
-              </div>
-
-              {/* Issues Summary Section */}
-              <div className="mb-8 bg-gradient-to-r from-orange-50 to-red-50 p-6 rounded-lg border-2 border-orange-200">
-                <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6">
-                  <h3 className="text-xl font-bold text-orange-900 flex items-center gap-2">⚠️ Issues Summary</h3>
-                  <div className="flex items-center gap-2">
-                    <label className="text-black font-semibold text-sm uppercase tracking-wider">📅 Select Month:</label>
-                    <select
-                      value={issuesSummaryMonth}
-                      onChange={(e) => setIssuesSummaryMonth(e.target.value)}
-                      className="px-4 py-2 border-2 border-orange-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-600 text-black bg-white font-medium"
-                    >
-                      <option value="">All Months</option>
-                      {Array.from({ length: 12 }, (_, i) => {
-                        const date = new Date(new Date().getFullYear(), i, 1);
-                        const monthYear = date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
-                        return (
-                          <option key={i} value={`${date.getFullYear()}-${String(i + 1).padStart(2, '0')}`}>
-                            {monthYear}
-                          </option>
-                        );
-                      })}
-                    </select>
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-3">
-                  {[
-                    { label: 'Missing Content', key: 'missingContent', icon: '📝' },
-                    { label: 'Broken Links', key: 'brokenLinks', icon: '🔗' },
-                    { label: 'SEO Issues', key: 'seoIssues', icon: '🔍' },
-                    { label: 'Alt Text', key: 'altTextIssues', icon: '🖼️' },
-                    { label: 'ARIA/CTA', key: 'ariaLabelIssues', icon: '♿' },
-                    { label: 'Trademark', key: 'trademarkIssues', icon: '™️' },
-                    { label: 'Disclosure', key: 'disclosureIssues', icon: '📢' },
-                    { label: 'Other', key: 'otherIssues', icon: '📌' },
-                    { label: 'Total', key: 'totalIssues', icon: '📌' },
-                  ].map((issue) => {
-                    let displayEntries = entries;
-
-                    if (issuesSummaryMonth) {
-                      const [year, month] = issuesSummaryMonth.split('-');
-                      displayEntries = entries.filter(entry => {
-                        const entryDate = new Date(entry.date.split('/').reverse().join('-'));
-                        return entryDate.getFullYear() === parseInt(year) &&
-                               entryDate.getMonth() === parseInt(month) - 1;
-                      });
-                    }
-
-                    const total = displayEntries
-                      .filter(entry =>
-                        entry.ticketNumber.toLowerCase().includes(ticketSearch.toLowerCase()) &&
-                        entry.qaTeamMember.toLowerCase().includes(qaNameSearch.toLowerCase())
-                      )
-                      .reduce((sum, entry) => sum + (entry[issue.key] || 0), 0);
-
-                    return (
-                      <div key={issue.key} className="bg-white rounded-lg p-3 border-2 border-orange-100 hover:border-orange-300 transition text-center">
-                        <p className="text-2xl mb-1">{issue.icon}</p>
-                        <p className="text-sm font-semibold text-orange-700 mb-1">{issue.label}</p>
-                        <p className="text-2xl font-bold text-orange-900">{total}</p>
-                      </div>
-                    );
-                  })}
+                <div className="mt-5">
+                  <button
+                    onClick={() => {
+                      setTicketSearch('');
+                      setQaNameSearch('');
+                    }}
+                    className="bg-gray-500 text-white font-bold py-2 px-5 rounded-lg hover:bg-gray-600 transition text-sm"
+                  >
+                    ✕ Clear Search
+                  </button>
                 </div>
               </div>
 
@@ -979,51 +1059,43 @@ export default function DailyStatusTracker() {
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="bg-gradient-to-r from-gray-800 to-gray-900 text-white">
-                      <th className="px-4 py-4 text-left font-bold text-sm">Date</th>
-                      <th className="px-4 py-4 text-left font-bold text-sm">Ticket</th>
-                      <th className="px-4 py-4 text-left font-bold text-sm">Statement</th>
-                      <th className="px-4 py-4 text-left font-bold text-sm">Status</th>
-                      <th className="px-4 py-4 text-left font-bold text-sm"> QA </th>
-                      <th className="px-4 py-4 text-center font-bold text-sm">Missing <br />Content</th>
-                      <th className="px-4 py-4 text-center font-bold text-sm">Broken <br />Links</th>
-                      <th className="px-4 py-4 text-center font-bold text-sm">SEO <br /> Issues</th>
-                      <th className="px-4 py-4 text-center font-bold text-sm">Alt Text Issues<br />/Image Issues</th>
-                      <th className="px-4 py-4 text-center font-bold text-sm">ARIA Label Issues<br />/CTA Issues</th>
-                      <th className="px-4 py-4 text-center font-bold text-sm">Trademark<br /> Issues</th>
-                      <th className="px-4 py-4 text-center font-bold text-sm">Disclosure <br />Issues</th>
-                      <th className="px-4 py-4 text-center font-bold text-sm">Other</th>
-                      <th className="px-4 py-4 text-center font-bold text-sm bg-yellow-600">📊 Total</th>
-                      <th className="px-4 py-4 text-center font-bold text-sm">⚙️ Actions</th>
+                      <th className="px-4 py-3 text-left font-bold text-sm">Date</th>
+                      <th className="px-4 py-3 text-left font-bold text-sm">Ticket</th>
+                      <th className="px-4 py-3 text-left font-bold text-sm">Statement</th>
+                      <th className="px-4 py-3 text-left font-bold text-sm">Status</th>
+                      <th className="px-4 py-3 text-left font-bold text-sm">QA</th>
+                      <th className="px-4 py-3 text-center font-bold text-sm bg-yellow-600">Total Issues</th>
+                      <th className="px-4 py-3 text-center font-bold text-sm">Actions</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {(filteredEntries.length > 0 ? filteredEntries : entries)
+                    {entries
                       .filter(entry =>
                         entry.ticketNumber.toLowerCase().includes(ticketSearch.toLowerCase()) &&
                         entry.qaTeamMember.toLowerCase().includes(qaNameSearch.toLowerCase())
                       )
                       .map((entry, idx) => (
                       <tr key={entry.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition border-b border-gray-200`}>
-                        <td className="px-4 py-4 text-black text-sm font-medium">{entry.date}</td>
-                        <td className="px-4 py-4 text-black font-bold text-sm">{entry.ticketNumber}</td>
-                        <td className="px-4 py-4 text-black max-w-xs truncate text-sm" title={entry.ticketStatement}>{entry.ticketStatement}</td>
-                        <td className="px-4 py-4 text-black">
-                          <span className="inline-block bg-blue-100 text-blue-800 px-3 py-1 rounded-full text-xs font-bold">
+                        <td className="px-4 py-3 text-black text-sm font-medium">{entry.date}</td>
+                        <td className="px-4 py-3 text-black font-bold text-sm">{entry.ticketNumber}</td>
+                        <td className="px-4 py-3 text-black text-sm" style={{maxWidth: '350px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}} title={entry.ticketStatement}>{entry.ticketStatement}</td>
+                        <td className="px-4 py-3 text-black">
+                          <span className={`inline-block px-3 py-1 text-sm font-bold ${
+                            entry.ticketStatus === 'Issues Reported'
+                              ? 'text-red-700'
+                              : entry.ticketStatus === 'PASS'
+                              ? 'text-green-700'
+                              : entry.ticketStatus === 'First Pass'
+                              ? 'text-blue-700'
+                              : 'text-gray-700'
+                          }`}>
                             {entry.ticketStatus}
                           </span>
                         </td>
-                        <td className="px-4 py-4 text-black font-semibold text-sm">{entry.qaTeamMember}</td>
-                        <td className="px-4 py-4 text-center text-black font-bold text-sm">{entry.missingContent}</td>
-                        <td className="px-4 py-4 text-center text-black font-bold text-sm">{entry.brokenLinks}</td>
-                        <td className="px-4 py-4 text-center text-black font-bold text-sm">{entry.seoIssues}</td>
-                        <td className="px-4 py-4 text-center text-black font-bold text-sm">{entry.altTextIssues}</td>
-                        <td className="px-4 py-4 text-center text-black font-bold text-sm">{entry.ariaLabelIssues}</td>
-                        <td className="px-4 py-4 text-center text-black font-bold text-sm">{entry.trademarkIssues}</td>
-                        <td className="px-4 py-4 text-center text-black font-bold text-sm">{entry.disclosureIssues}</td>
-                        <td className="px-4 py-4 text-center text-black font-bold text-sm">{entry.otherIssues}</td>
-                        <td className="px-4 py-4 text-center text-black font-bold text-sm bg-yellow-100 rounded font-bold">{entry.totalIssues}</td>
-                        <td className="px-4 py-4 text-center">
-                          <div className="flex justify-center gap-3">
+                        <td className="px-4 py-3 text-black font-semibold text-sm">{entry.qaTeamMember}</td>
+                        <td className="px-4 py-3 text-center text-black font-bold text-sm bg-yellow-100 rounded">{entry.totalIssues}</td>
+                        <td className="px-4 py-3 text-center">
+                          <div className="flex justify-center gap-2">
                             <button
                               onClick={() => handleEdit(entry)}
                               className="bg-blue-100 text-blue-600 hover:bg-blue-200 transition font-bold p-2 rounded-lg"
@@ -1122,11 +1194,11 @@ export default function DailyStatusTracker() {
 
               {/* Issues Section */}
               <div className="bg-gray-300 p-4 rounded-lg mb-6">
-                <h3 className="text-lg font-bold text-black mb-4">Issue Tracking</h3>
+                <h3 className="text-xl font-bold text-black mb-4">Issue Tracking</h3>
 
                 <div className="grid grid-cols-2 md:grid-cols-2 gap-4 mb-4">
                   <div>
-                    <label className="block text-black font-semibold mb-1 text-sm">Missing Content</label>
+                    <label className="block text-black font-semibold mb-1 text-base">Missing Content</label>
                     <input
                       type="number"
                       name="missingContent"
@@ -1134,11 +1206,11 @@ export default function DailyStatusTracker() {
                       onChange={handleInputChange}
                       onFocus={(e) => e.target.select()}
                       min="0"
-                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black"
+                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black text-base"
                     />
                   </div>
                   <div>
-                    <label className="block text-black font-semibold mb-1 text-sm">Broken Links</label>
+                    <label className="block text-black font-semibold mb-1 text-base">Broken Links</label>
                     <input
                       type="number"
                       name="brokenLinks"
@@ -1146,11 +1218,11 @@ export default function DailyStatusTracker() {
                       onChange={handleInputChange}
                       onFocus={(e) => e.target.select()}
                       min="0"
-                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black"
+                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black text-base"
                     />
                   </div>
                   <div>
-                    <label className="block text-black font-semibold mb-1 text-sm">SEO Issues</label>
+                    <label className="block text-black font-semibold mb-1 text-base">SEO Issues</label>
                     <input
                       type="number"
                       name="seoIssues"
@@ -1158,11 +1230,11 @@ export default function DailyStatusTracker() {
                       onChange={handleInputChange}
                       onFocus={(e) => e.target.select()}
                       min="0"
-                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black"
+                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black text-base"
                     />
                   </div>
                   <div>
-                    <label className="block text-black font-semibold mb-1 text-sm">Alt Text Issues/Image Issues</label>
+                    <label className="block text-black font-semibold mb-1 text-base">Alt Text Issues/Image Issues</label>
                     <input
                       type="number"
                       name="altTextIssues"
@@ -1170,11 +1242,11 @@ export default function DailyStatusTracker() {
                       onChange={handleInputChange}
                       onFocus={(e) => e.target.select()}
                       min="0"
-                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black"
+                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black text-base"
                     />
                   </div>
                   <div>
-                    <label className="block text-black font-semibold mb-1 text-sm">ARIA Label Issues/CTA Issues</label>
+                    <label className="block text-black font-semibold mb-1 text-base">ARIA Label Issues/CTA Issues</label>
                     <input
                       type="number"
                       name="ariaLabelIssues"
@@ -1182,11 +1254,11 @@ export default function DailyStatusTracker() {
                       onChange={handleInputChange}
                       onFocus={(e) => e.target.select()}
                       min="0"
-                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black"
+                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black text-base"
                     />
                   </div>
                   <div>
-                    <label className="block text-black font-semibold mb-1 text-sm">Trademark Issues</label>
+                    <label className="block text-black font-semibold mb-1 text-base">Trademark Issues</label>
                     <input
                       type="number"
                       name="trademarkIssues"
@@ -1194,11 +1266,11 @@ export default function DailyStatusTracker() {
                       onChange={handleInputChange}
                       onFocus={(e) => e.target.select()}
                       min="0"
-                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black"
+                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black text-base"
                     />
                   </div>
                   <div>
-                    <label className="block text-black font-semibold mb-1 text-sm">Disclosure Issues</label>
+                    <label className="block text-black font-semibold mb-1 text-base">Disclosure Issues</label>
                     <input
                       type="number"
                       name="disclosureIssues"
@@ -1206,11 +1278,11 @@ export default function DailyStatusTracker() {
                       onChange={handleInputChange}
                       onFocus={(e) => e.target.select()}
                       min="0"
-                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black"
+                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black text-base"
                     />
                   </div>
                   <div>
-                    <label className="block text-black font-semibold mb-1 text-sm">Other (Translations, Typo's, Spacing, etc.)</label>
+                    <label className="block text-black font-semibold mb-1 text-base">Other (Translations, Typo's, Spacing, etc.)</label>
                     <input
                       type="number"
                       name="otherIssues"
@@ -1218,21 +1290,34 @@ export default function DailyStatusTracker() {
                       onChange={handleInputChange}
                       onFocus={(e) => e.target.select()}
                       min="0"
-                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black"
+                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black text-base"
                     />
                   </div>
                 </div>
 
                 {/* Total Issues */}
                 <div>
-                  <label className="block text-black font-semibold mb-1 text-sm">Total Issues</label>
+                  <label className="block text-black font-semibold mb-1 text-base">Total Issues</label>
                   <input
                     type="number"
                     value={totalIssues}
                     readOnly
-                    className="w-full px-3 py-2 border-2 border-black rounded-lg bg-gray-100 text-black font-bold"
+                    className="w-full px-3 py-2 border-2 border-black rounded-lg bg-gray-100 text-black font-bold text-base"
                   />
                 </div>
+              </div>
+
+              {/* Notes */}
+              <div className="mb-6">
+                <label className="block text-black font-semibold mb-2">Notes</label>
+                <textarea
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleInputChange}
+                  placeholder="Add any additional notes"
+                  rows="2"
+                  className="w-full px-4 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black placeholder-gray-400"
+                />
               </div>
 
               {/* Action Buttons */}
@@ -1312,6 +1397,528 @@ export default function DailyStatusTracker() {
             </div>
           </div>
         )}
+          </>
+        )}
+
+        {/* Dashboard Page */}
+        {currentPage === 'dashboard' && (
+          <div className="p-8" style={{marginLeft: '60px', marginRight: '60px'}}>
+
+            {/* Month Selector */}
+            <div className="bg-white border-2 border-gray-200 rounded-lg p-6 mb-8">
+              <label className="block text-black font-semibold mb-2">Select Month</label>
+              <select
+                value={issuesSummaryMonth}
+                onChange={(e) => setIssuesSummaryMonth(e.target.value)}
+                className="px-4 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black cursor-pointer bg-white"
+              >
+                <option value="">All Months</option>
+                {Array.from({ length: 12 }, (_, i) => {
+                  const date = new Date(new Date().getFullYear(), i, 1);
+                  const monthYear = date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+                  return (
+                    <option key={i} value={`${date.getFullYear()}-${String(i + 1).padStart(2, '0')}`}>
+                      {monthYear}
+                    </option>
+                  );
+                })}
+              </select>
+            </div>
+
+            {/* Stats Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              {/* Issues Reported Card */}
+              <div className="bg-gradient-to-br from-red-50 to-rose-50 border-2 border-red-300 rounded-xl p-8 shadow-lg hover:shadow-xl transition">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-red-700 font-semibold text-base uppercase tracking-wider">Issues Reported</p>
+                    <p className="text-5xl font-bold text-red-600 mt-3">
+                      {issuesSummaryMonth
+                        ? entries
+                            .filter((e) => {
+                              const entryDate = new Date(e.date.split('/').reverse().join('-'));
+                              const [year, month] = issuesSummaryMonth.split('-');
+                              return entryDate.getFullYear() === parseInt(year) &&
+                                     entryDate.getMonth() === parseInt(month) - 1 &&
+                                     e.ticketStatus === 'Issues Reported';
+                            })
+                            .length
+                        : entries.filter((e) => e.ticketStatus === 'Issues Reported').length}
+                    </p>
+                  </div>
+                  <div className="text-5xl">📊</div>
+                </div>
+              </div>
+
+              {/* Pass Card */}
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-300 rounded-xl p-8 shadow-lg hover:shadow-xl transition">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-green-700 font-semibold text-base uppercase tracking-wider">Passed</p>
+                    <p className="text-5xl font-bold text-green-600 mt-3">
+                      {issuesSummaryMonth
+                        ? entries
+                            .filter((e) => {
+                              const entryDate = new Date(e.date.split('/').reverse().join('-'));
+                              const [year, month] = issuesSummaryMonth.split('-');
+                              return entryDate.getFullYear() === parseInt(year) &&
+                                     entryDate.getMonth() === parseInt(month) - 1 &&
+                                     e.ticketStatus === 'PASS';
+                            })
+                            .length
+                        : entries.filter((e) => e.ticketStatus === 'PASS').length}
+                    </p>
+                  </div>
+                  <div className="text-5xl">✅</div>
+                </div>
+              </div>
+
+              {/* First Pass Card */}
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-xl p-8 shadow-lg hover:shadow-xl transition">
+                <div className="flex justify-between items-start">
+                  <div>
+                    <p className="text-blue-700 font-semibold text-base uppercase tracking-wider">First Pass</p>
+                    <p className="text-5xl font-bold text-blue-600 mt-3">
+                      {issuesSummaryMonth
+                        ? entries
+                            .filter((e) => {
+                              const entryDate = new Date(e.date.split('/').reverse().join('-'));
+                              const [year, month] = issuesSummaryMonth.split('-');
+                              return entryDate.getFullYear() === parseInt(year) &&
+                                     entryDate.getMonth() === parseInt(month) - 1 &&
+                                     e.ticketStatus === 'First Pass';
+                            })
+                            .length
+                        : entries.filter((e) => e.ticketStatus === 'First Pass').length}
+                    </p>
+                  </div>
+                  <div className="text-4xl">🎯</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Issues Summary Section */}
+            <div className="mb-8 bg-gradient-to-r from-orange-50 to-red-50 p-8 rounded-xl border-2 border-orange-200 shadow-lg">
+              <h3 className="text-2xl font-bold text-orange-900 flex items-center gap-2 mb-6">⚠️ Issues Breakdown</h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-9 gap-4">
+                {[
+                  { label: 'Missing Content', key: 'missingContent', icon: '📝' },
+                  { label: 'Broken Links', key: 'brokenLinks', icon: '🔗' },
+                  { label: 'SEO Issues', key: 'seoIssues', icon: '🔍' },
+                  { label: 'Alt Text', key: 'altTextIssues', icon: '🖼️' },
+                  { label: 'ARIA/CTA', key: 'ariaLabelIssues', icon: '♿' },
+                  { label: 'Trademark', key: 'trademarkIssues', icon: '™️' },
+                  { label: 'Disclosure', key: 'disclosureIssues', icon: '📢' },
+                  { label: 'Other', key: 'otherIssues', icon: '📌' },
+                  { label: 'Total', key: 'totalIssues', icon: '📌' },
+                ].map((issue) => {
+                  let displayEntries = entries;
+
+                  if (issuesSummaryMonth) {
+                    const [year, month] = issuesSummaryMonth.split('-');
+                    displayEntries = entries.filter(entry => {
+                      const entryDate = new Date(entry.date.split('/').reverse().join('-'));
+                      return entryDate.getFullYear() === parseInt(year) &&
+                             entryDate.getMonth() === parseInt(month) - 1;
+                    });
+                  }
+
+                  const total = displayEntries.reduce((sum, entry) => sum + (entry[issue.key] || 0), 0);
+
+                  return (
+                    <div key={issue.key} className="bg-white rounded-lg p-4 border-2 border-orange-100 hover:border-orange-400 hover:shadow-md transition text-center">
+                      <p className="text-3xl mb-2">{issue.icon}</p>
+                      <p className="text-base font-semibold text-orange-700 mb-2">{issue.label}</p>
+                      <p className="text-3xl font-bold text-orange-900">{total}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* QA MANAGEMENT PAGE */}
+        {currentPage === 'qa-management' && (
+          <div className="p-8" style={{marginLeft: '60px', marginRight: '60px'}}>
+
+            {/* QA Team Management Card */}
+            <div className="bg-gradient-to-br from-white to-blue-50 border-2 border-gray-300 rounded-xl p-8 mb-8 shadow-lg">
+              <h2 className="text-3xl font-bold text-black mb-6">Add Team Member</h2>
+              <div className="flex gap-4 mb-8">
+                <input
+                  type="text"
+                  value={newMember}
+                  onChange={(e) => setNewMember(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleAddMember()}
+                  placeholder="Enter member name"
+                  className="flex-1 px-4 py-3 border-2 border-gray-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black placeholder-gray-400 text-lg"
+                />
+                <button
+                  onClick={handleAddMember}
+                  className="bg-blue-600 text-white font-bold py-3 px-8 rounded-lg hover:bg-blue-700 transition text-lg"
+                >
+                  ➕ Add Member
+                </button>
+              </div>
+
+              {/* Members List */}
+              <h2 className="text-3xl font-bold text-black mb-6">Team Members ({qaMembers.length})</h2>
+              {qaMembers.length === 0 ? (
+                <p className="text-gray-600 text-center py-12 text-lg">No team members added yet.</p>
+              ) : (
+                <div className="space-y-3">
+                  {qaMembers.map((member) => (
+                    <div key={member} className="flex justify-between items-center bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-lg border-2 border-blue-200 hover:shadow-md transition">
+                      <span className="text-black font-bold text-lg">👤 {member}</span>
+                      <button
+                        onClick={() => handleDeleteMember(member)}
+                        className="bg-red-600 text-white font-bold py-2 px-5 rounded-lg hover:bg-red-700 transition text-base"
+                      >
+                        🗑️ Remove
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* EXPORT PAGE */}
+        {currentPage === 'export' && (
+          <div className="p-8" style={{marginLeft: '60px', marginRight: '60px'}}>
+
+            {/* Two Column Section */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+              {/* Daily Work Entries Filter */}
+              <div className="bg-gradient-to-br from-white to-blue-50 border-2 border-gray-300 rounded-xl p-8 shadow-lg">
+                <h2 className="text-3xl font-bold text-black mb-6">Daily Work Entries</h2>
+
+                <div className="flex flex-col gap-4 bg-gradient-to-r from-blue-50 to-indigo-50 p-5 rounded-lg border-2 border-blue-200 mb-4">
+                  <div
+                    onClick={(e) => {
+                      e.currentTarget.querySelector('input[type="date"]')?.showPicker?.();
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <label className="block text-black font-bold mb-2 text-sm uppercase tracking-wider cursor-pointer">📅 Select Date</label>
+                    <input
+                      type="date"
+                      value={filterByDate}
+                      onChange={(e) => {
+                        setFilterByDate(e.target.value);
+                        if (e.target.value) {
+                          const selectedDate = new Date(e.target.value);
+                          const filtered = entries.filter(entry => {
+                            const entryDate = new Date(entry.date.split('/').reverse().join('-'));
+                            return entryDate.toDateString() === selectedDate.toDateString();
+                          });
+                          setFilteredEntries(filtered);
+                        } else {
+                          setFilteredEntries([]);
+                        }
+                      }}
+                      className="w-full px-4 py-3 border-2 border-blue-400 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-600 text-black cursor-pointer bg-white font-medium text-lg"
+                    />
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setFilterByDate('');
+                        setFilteredEntries([]);
+                      }}
+                      className="flex-1 bg-gray-400 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-500 transition text-base"
+                      title="Clear filter"
+                    >
+                      ✕ Clear
+                    </button>
+
+                    <button
+                      onClick={handleExportDailyEntries}
+                      disabled={filteredEntries.length === 0}
+                      className="flex-1 bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed text-base flex items-center justify-center gap-2"
+                      title="Download as Excel"
+                    >
+                      <Download size={20} />
+                      Excel
+                    </button>
+
+                    <button
+                      onClick={handleExportToText}
+                      disabled={filteredEntries.length === 0}
+                      className="flex-1 bg-purple-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-purple-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed text-base"
+                      title="Download as Text"
+                    >
+                      📄 Text
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              {/* Monthly Data Export */}
+              <div className="bg-gradient-to-br from-white to-green-50 border-2 border-gray-300 rounded-xl p-8 shadow-lg">
+                <h2 className="text-3xl font-bold text-black mb-6">Monthly Data Export</h2>
+
+                <div className="flex flex-col gap-4 bg-gradient-to-r from-green-50 to-emerald-50 p-5 rounded-lg border-2 border-green-200 mb-4">
+                  <div
+                    onClick={(e) => {
+                      e.currentTarget.querySelector('input[type="date"]')?.showPicker?.();
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <label className="block text-black font-bold mb-2 text-sm uppercase tracking-wider cursor-pointer">📅 From Date</label>
+                    <input
+                      type="date"
+                      value={monthlyExportFromDate}
+                      onChange={(e) => {
+                        setMonthlyExportFromDate(e.target.value);
+                        if (monthlyExportFromDate && monthlyExportToDate) {
+                          handleFilterByMonth();
+                        }
+                      }}
+                      className="w-full px-4 py-3 border-2 border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 text-black cursor-pointer bg-white font-medium text-lg"
+                    />
+                  </div>
+
+                  <div
+                    onClick={(e) => {
+                      e.currentTarget.querySelector('input[type="date"]')?.showPicker?.();
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <label className="block text-black font-bold mb-2 text-sm uppercase tracking-wider cursor-pointer">📅 To Date</label>
+                    <input
+                      type="date"
+                      value={monthlyExportToDate}
+                      onChange={(e) => {
+                        setMonthlyExportToDate(e.target.value);
+                        if (monthlyExportFromDate && e.target.value) {
+                          handleFilterByMonth();
+                        }
+                      }}
+                      className="w-full px-4 py-3 border-2 border-green-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-600 text-black cursor-pointer bg-white font-medium text-lg"
+                    />
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button
+                      onClick={() => {
+                        setMonthlyExportFromDate('');
+                        setMonthlyExportToDate('');
+                        setMonthlyFilteredEntries([]);
+                      }}
+                      className="flex-1 bg-gray-400 text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-500 transition text-base"
+                      title="Clear monthly filter"
+                    >
+                      ✕ Clear
+                    </button>
+
+                    <button
+                      onClick={handleExportMonthlyData}
+                      disabled={monthlyFilteredEntries.length === 0}
+                      className="flex-1 bg-green-600 text-white font-bold py-3 px-4 rounded-lg hover:bg-green-700 transition disabled:bg-gray-400 disabled:cursor-not-allowed text-base flex items-center justify-center gap-2"
+                    >
+                      <Download size={20} />
+                      Export
+                    </button>
+                  </div>
+                </div>
+
+                {monthlyFilteredEntries.length > 0 && (
+                  <div className="bg-blue-50 border-2 border-blue-300 rounded-lg p-5">
+                    <p className="text-black font-bold text-base">Filtered Results: <span className="text-blue-600 text-lg">{monthlyFilteredEntries.length}</span> entries found</p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Daily Entries Table Below - Only shows when date is selected */}
+            {filteredEntries.length > 0 && (
+              <div className="bg-white border-2 border-gray-200 rounded-lg p-6 mt-8">
+                <h2 className="text-2xl font-bold text-black mb-4">Daily Entries ({filteredEntries.length})</h2>
+
+                <div className="overflow-x-auto rounded-lg border-2 border-gray-200 shadow-sm">
+                  <table className="w-full border-collapse">
+                    <thead>
+                      <tr className="bg-gradient-to-r from-gray-800 to-gray-900 text-white">
+                        <th className="px-4 py-3 text-left font-bold text-sm">Date</th>
+                        <th className="px-4 py-3 text-left font-bold text-sm">Ticket</th>
+                        <th className="px-4 py-3 text-left font-bold text-sm">Statement</th>
+                        <th className="px-4 py-3 text-left font-bold text-sm">Status</th>
+                        <th className="px-4 py-3 text-left font-bold text-sm">QA</th>
+                        <th className="px-4 py-3 text-center font-bold text-sm bg-yellow-600">Total Issues</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredEntries.map((entry, idx) => (
+                        <tr key={entry.id} className={`${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'} hover:bg-blue-50 transition border-b border-gray-200`}>
+                          <td className="px-4 py-3 text-black text-sm font-medium">{entry.date}</td>
+                          <td className="px-4 py-3 text-black font-bold text-sm">{entry.ticketNumber}</td>
+                          <td className="px-4 py-3 text-black text-sm" style={{maxWidth: '350px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap'}} title={entry.ticketStatement}>{entry.ticketStatement}</td>
+                          <td className="px-4 py-3 text-black">
+                            <span className={`inline-block px-3 py-1 text-sm font-bold ${
+                              entry.ticketStatus === 'Issues Reported'
+                                ? 'text-red-700'
+                                : entry.ticketStatus === 'PASS'
+                                ? 'text-green-700'
+                                : entry.ticketStatus === 'First Pass'
+                                ? 'text-blue-700'
+                                : 'text-gray-700'
+                            }`}>
+                              {entry.ticketStatus}
+                            </span>
+                          </td>
+                          <td className="px-4 py-3 text-black font-semibold text-sm">{entry.qaTeamMember}</td>
+                          <td className="px-4 py-3 text-center text-black font-bold text-sm bg-yellow-100 rounded">{entry.totalIssues}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ACCESS CONTROL PAGE */}
+        {currentPage === 'access-control' && (
+          <div className="p-8" style={{marginLeft: '60px', marginRight: '60px'}}>
+
+            {/* Pending Access Requests Section */}
+            {isCurrentUserAdmin() && pendingRequests.length > 0 && (
+              <div className="bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-orange-300 rounded-xl p-8 shadow-lg mb-8">
+                <h2 className="text-3xl font-bold text-black mb-6">📋 Pending Access Requests ({pendingRequests.length})</h2>
+                <div className="space-y-4">
+                  {pendingRequests.map((request) => (
+                    <div key={request.name} className="flex justify-between items-center bg-white p-6 rounded-lg border-2 border-orange-200 hover:shadow-md transition">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3">
+                          <span className="text-3xl">🚀</span>
+                          <div>
+                            <p className="text-black font-bold text-xl">{request.name}</p>
+                            <p className="text-gray-700 text-base">
+                              Requested {new Date(request.requestedAt).toLocaleDateString('en-IN', {
+                                year: 'numeric',
+                                month: 'short',
+                                day: 'numeric',
+                                hour: '2-digit',
+                                minute: '2-digit'
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => handleApproveRequest(request.name)}
+                          className="bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition text-base"
+                        >
+                          ✅ Approve
+                        </button>
+                        <button
+                          onClick={() => handleRejectRequest(request.name)}
+                          className="bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition text-base"
+                        >
+                          ❌ Reject
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Approved Users Section */}
+            <div className="bg-gradient-to-br from-white to-purple-50 border-2 border-gray-300 rounded-xl p-8 shadow-lg mb-8">
+              <h2 className="text-3xl font-bold text-black mb-6">Approved Users ({approvedUsers.length})</h2>
+
+              {approvedUsers.length === 0 ? (
+                <p className="text-gray-600 text-center py-12 text-lg">No approved users yet</p>
+              ) : (
+                <div className="space-y-4">
+                  {approvedUsers.map((user) => (
+                    <div key={user.name} className={`flex justify-between items-center p-6 rounded-lg border-2 transition hover:shadow-lg ${
+                      user.role === 'admin'
+                        ? 'bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-300 shadow-md'
+                        : 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
+                    }`}>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-2">
+                            <span className="text-3xl">👤</span>
+                            <p className="text-black font-bold text-xl">{user.name}</p>
+                          </div>
+                          <span className={`px-4 py-2 rounded-full text-base font-bold flex items-center gap-2 ${
+                            user.role === 'admin'
+                              ? 'bg-purple-300 text-purple-900 shadow-md border-2 border-purple-400'
+                              : 'bg-blue-200 text-blue-800'
+                          }`}>
+                            {user.role === 'admin' ? (
+                              <>
+                                <span className="text-xl">👑</span>
+                                <span>Admin</span>
+                              </>
+                            ) : (
+                              <>
+                                <span className="text-lg">👤</span>
+                                <span>User</span>
+                              </>
+                            )}
+                          </span>
+                        </div>
+                        <p className={`text-base mt-2 ${user.role === 'admin' ? 'text-purple-700' : 'text-gray-700'}`}>
+                          Approved on {new Date(user.approvedAt).toLocaleDateString('en-IN', {
+                            year: 'numeric',
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                      <div className="flex gap-3 items-center">
+                        {currentUser === user.name && (
+                          <span className="bg-blue-600 text-white px-4 py-2 rounded-lg text-base font-bold">
+                            You
+                          </span>
+                        )}
+                        {isCurrentUserAdmin() && (
+                          <select
+                            value={user.role}
+                            onChange={(e) => handleChangeRole(user.name, e.target.value)}
+                            disabled={user.role === 'admin' && getAdminUsers().length === 1}
+                            className="px-4 py-2 border-2 border-gray-300 rounded-lg font-semibold text-sm bg-white disabled:bg-gray-200 disabled:cursor-not-allowed"
+                            title={user.role === 'admin' && getAdminUsers().length === 1 ? 'Cannot demote last admin' : 'Change user role'}
+                          >
+                            <option value="user">User</option>
+                            <option value="admin">Admin</option>
+                          </select>
+                        )}
+                        <button
+                          onClick={() => handleDeleteUser(user.name)}
+                          disabled={!isCurrentUserAdmin() || (user.role === 'admin' && getAdminUsers().length === 1)}
+                          className={`py-3 px-5 rounded-lg transition text-base font-bold ${
+                            isCurrentUserAdmin() && !(user.role === 'admin' && getAdminUsers().length === 1)
+                              ? 'bg-red-600 text-white hover:bg-red-700 cursor-pointer'
+                              : 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                          }`}
+                          title={!isCurrentUserAdmin() ? 'Only admins can delete users' : user.role === 'admin' && getAdminUsers().length === 1 ? 'Cannot delete last admin' : 'Delete user'}
+                        >
+                          🗑️ Delete
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+              
+              </div>
+        )}
+          </div>
+        </div>
       </div>
     </div>
   );

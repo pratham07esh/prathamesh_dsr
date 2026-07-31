@@ -1,0 +1,21 @@
+{
+  "entries": [],
+  "qaMembers": [
+    "QA1",
+    "QA2"
+  ],
+  "approvedUsers": [
+    {
+      "name": "test_admin",
+      "role": "admin",
+      "approvedAt": "2026-07-31T00:00:00Z"
+    }
+  ],
+  "pendingRequests": [
+    {
+      "name": "test_user",
+      "requestedAt": "2026-07-31T00:00:00Z",
+      "status": "pending"
+    }
+  ]
+}
