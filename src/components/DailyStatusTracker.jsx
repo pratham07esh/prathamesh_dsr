@@ -126,15 +126,6 @@ export default function DailyStatusTracker() {
       setApprovedUsers(oneDriveApprovedUsers);
       setPendingRequests(oneDrivePendingRequests);
 
-      // Validate currentUser is still in approved list
-      const storedUser = localStorage.getItem('currentUser');
-      if (storedUser && !oneDriveApprovedUsers.find(u => u.name === storedUser)) {
-        // User was deleted or never existed in database - clear session
-        localStorage.removeItem('currentUser');
-        setCurrentUser(null);
-        setShowNameModal(true);
-      }
-
       if (initialized) {
         setSyncStatus('connected');
         const folderPath = await getOneDriveFolder();
