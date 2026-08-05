@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2, Edit2, Download, Cloud, Menu, X } from 'lucide-react';
+import { Trash2, Edit2, Download, Cloud, Menu, X, LogOut } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import { initializeOneDriveSync, saveToOneDrive, loadFromOneDrive, selectOneDriveFolder, getOneDriveFolder } from '../utils/oneDriveSync';
 
@@ -37,12 +37,20 @@ export default function DailyStatusTracker() {
   const [syncStatus, setSyncStatus] = useState('ready');
 
   // User authentication states
-  const [currentUser, setCurrentUser] = useState(() => localStorage.getItem('currentUser') || null);
+  const [currentUser, setCurrentUser] = useState(() => {
+    const user = localStorage.getItem('currentUser');
+    return user ? JSON.parse(user) : null;
+  });
   const [userName, setUserName] = useState('');
   const [approvedUsers, setApprovedUsers] = useState([]);
   const [pendingRequests, setPendingRequests] = useState([]);
   const [showNameModal, setShowNameModal] = useState(!currentUser);
   const [showUserMenu, setShowUserMenu] = useState(false);
+
+  const isAdmin = currentUser?.role === 'admin';
+  const canAdd = isAdmin || currentUser?.permissions?.canAdd;
+  const canEdit = isAdmin || currentUser?.permissions?.canEdit;
+  const canDelete = isAdmin || currentUser?.permissions?.canDelete;
 
   const savedQaMembers = initializeQaMembers();
 
@@ -153,6 +161,15 @@ export default function DailyStatusTracker() {
       ...prev,
       [name]: name.includes('Issues') || name.includes('Content') || name.includes('Links') ? parseInt(value) || 0 : value
     }));
+  };
+
+  const handleUserLogout = () => {
+    if (window.confirm('Are you sure you want to logout?')) {
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('currentUser');
+      localStorage.removeItem('isAdmin');
+      window.location.href = '/';
+    }
   };
 
   const handleAddMember = () => {
@@ -762,24 +779,24 @@ export default function DailyStatusTracker() {
               className="w-16 h-16 bg-gradient-to-br from-blue-600 to-blue-800 text-white font-bold rounded-full flex items-center justify-center hover:shadow-lg transition text-2xl border-3 border-blue-700 shadow-md"
               title="User menu"
             >
-              {currentUser?.charAt(0).toUpperCase()}
+              {(typeof currentUser === 'object' ? currentUser?.username : currentUser)?.charAt(0).toUpperCase()}
             </button>
 
             {/* Dropdown Menu */}
             {showUserMenu && (
-              <div className="absolute right-0 mt-2 w-56 bg-white border border-gray-300 rounded-lg shadow-lg z-50">
-                <div className="px-4 py-3 border-b border-gray-200">
-                  <p className="text-gray-700 font-bold text-sm">Logged in as</p>
-                  <p className="text-gray-900 font-bold text-base">{currentUser}</p>
+              <div className="absolute right-0 mt-2 w-56 bg-white border-2 border-gray-300 rounded-lg shadow-lg z-50">
+                <div className="px-4 py-3 border-b-2 border-gray-300 bg-gradient-to-r from-blue-50 to-indigo-50">
+                  <p className="text-gray-700 font-bold text-sm">👤 Logged in as</p>
+                  <p className="text-gray-900 font-bold text-base">{typeof currentUser === 'object' ? currentUser?.username : currentUser}</p>
                 </div>
                 <button
                   onClick={() => {
-                    handleLogout();
+                    handleUserLogout();
                     setShowUserMenu(false);
                   }}
-                  className="w-full text-left px-4 py-3 text-red-600 font-bold hover:bg-red-50 transition flex items-center gap-2 text-base"
+                  className="w-full text-left px-4 py-3 text-red-600 font-bold hover:bg-red-50 transition flex items-center gap-2 text-base border-t border-gray-200"
                 >
-                  🚪 Logout
+                  <LogOut size={18} /> Logout
                 </button>
               </div>
             )}
@@ -947,10 +964,19 @@ export default function DailyStatusTracker() {
                 <textarea
                   name="notes"
                   value={formData.notes}
-                  onChange={handleInputChange}
+                  onChange={(e) => {
+                    handleInputChange(e);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = Math.min(e.target.scrollHeight, 300) + 'px';
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.height = 'auto';
+                    e.target.style.height = Math.min(e.target.scrollHeight, 300) + 'px';
+                  }}
                   placeholder="Add any additional notes (optional)"
                   rows="3"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black placeholder-gray-500 text-lg resize-none"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-black placeholder-gray-500 text-lg resize-none overflow-y-auto"
+                  style={{ minHeight: '100px', maxHeight: '300px', transition: 'height 0.2s ease' }}
                 />
               </div>
 
@@ -958,10 +984,19 @@ export default function DailyStatusTracker() {
               <div className="mt-10">
                 <button
                   onClick={handleAddEntry}
-                  className="w-full bg-blue-600 text-white font-bold py-4 px-6 rounded-lg hover:bg-blue-700 transition text-base shadow-md hover:shadow-lg"
+                  disabled={!canAdd}
+                  className={`w-full font-bold py-4 px-6 rounded-lg transition text-base shadow-md hover:shadow-lg ${
+                    canAdd
+                      ? 'bg-blue-600 text-white hover:bg-blue-700'
+                      : 'bg-gray-300 text-gray-600 cursor-not-allowed'
+                  }`}
+                  title={!canAdd ? '❌ You do not have permission to add entries' : ''}
                 >
                   {editingId ? '✅ Update Entry' : '➕ Add Daily Work'}
                 </button>
+                {!canAdd && (
+                  <p className="text-red-600 text-sm font-semibold mt-2 text-center">❌ You do not have permission to add entries</p>
+                )}
               </div>
 
               {/* Action Buttons (Cancel) */}
@@ -1108,20 +1143,27 @@ export default function DailyStatusTracker() {
                         <td className="px-4 py-3 text-center text-black font-bold text-sm bg-yellow-100 rounded">{entry.totalIssues}</td>
                         <td className="px-4 py-3 text-center">
                           <div className="flex justify-center gap-2">
-                            <button
-                              onClick={() => handleEdit(entry)}
-                              className="bg-blue-100 text-blue-600 hover:bg-blue-200 transition font-bold p-2 rounded-lg"
-                              title="Edit entry"
-                            >
-                              <Edit2 size={18} />
-                            </button>
-                            <button
-                              onClick={() => handleDeleteEntry(entry.id)}
-                              className="bg-red-100 text-red-600 hover:bg-red-200 transition font-bold p-2 rounded-lg"
-                              title="Delete entry"
-                            >
-                              <Trash2 size={18} />
-                            </button>
+                            {canEdit && (
+                              <button
+                                onClick={() => handleEdit(entry)}
+                                className="bg-blue-100 text-blue-600 hover:bg-blue-200 transition font-bold p-2 rounded-lg"
+                                title="Edit entry"
+                              >
+                                <Edit2 size={18} />
+                              </button>
+                            )}
+                            {canDelete && (
+                              <button
+                                onClick={() => handleDeleteEntry(entry.id)}
+                                className="bg-red-100 text-red-600 hover:bg-red-200 transition font-bold p-2 rounded-lg"
+                                title="Delete entry"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            )}
+                            {!canEdit && !canDelete && (
+                              <span className="text-gray-500 text-sm font-semibold px-2">🔒 Read-only</span>
+                            )}
                           </div>
                         </td>
                       </tr>
@@ -1325,10 +1367,19 @@ export default function DailyStatusTracker() {
                 <textarea
                   name="notes"
                   value={formData.notes}
-                  onChange={handleInputChange}
+                  onChange={(e) => {
+                    handleInputChange(e);
+                    e.target.style.height = 'auto';
+                    e.target.style.height = Math.min(e.target.scrollHeight, 300) + 'px';
+                  }}
+                  onFocus={(e) => {
+                    e.target.style.height = 'auto';
+                    e.target.style.height = Math.min(e.target.scrollHeight, 300) + 'px';
+                  }}
                   placeholder="Add any additional notes"
                   rows="2"
-                  className="w-full px-4 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black placeholder-gray-400"
+                  className="w-full px-4 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black placeholder-gray-400 resize-none overflow-y-auto"
+                  style={{ minHeight: '60px', maxHeight: '300px', transition: 'height 0.2s ease' }}
                 />
               </div>
 
