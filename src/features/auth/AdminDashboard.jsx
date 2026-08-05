@@ -27,7 +27,7 @@ export default function AdminDashboard({ onLogout }) {
       const token = localStorage.getItem('authToken');
 
       // Fetch all users
-      const response = await fetch('${API_BASE_URL}/api/auth/users', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/users`, {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
@@ -63,7 +63,7 @@ export default function AdminDashboard({ onLogout }) {
     try {
       const token = localStorage.getItem('authToken');
 
-      const response = await fetch('${API_BASE_URL}/api/auth/approve', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/approve`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -94,7 +94,7 @@ export default function AdminDashboard({ onLogout }) {
     try {
       const token = localStorage.getItem('authToken');
 
-      const response = await fetch('${API_BASE_URL}/api/auth/reject', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/reject`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -125,7 +125,7 @@ export default function AdminDashboard({ onLogout }) {
     try {
       const token = localStorage.getItem('authToken');
 
-      const response = await fetch('${API_BASE_URL}/api/auth/role', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/role`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -156,7 +156,7 @@ export default function AdminDashboard({ onLogout }) {
     try {
       const token = localStorage.getItem('authToken');
 
-      const response = await fetch('${API_BASE_URL}/api/auth/role', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/role`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
