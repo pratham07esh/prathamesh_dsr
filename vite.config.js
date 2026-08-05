@@ -10,12 +10,12 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
       output: {
-        manualChunks: {
-          'vendor-react': ['react', 'react-dom'],
-          'vendor-ui': ['lucide-react'],
-          'vendor-xlsx': ['xlsx'],
-          'vendor-azure': ['@azure/cosmos', '@azure/msal-browser', '@azure/msal-react'],
-          'vendor-auth': ['jsonwebtoken', 'bcryptjs'],
+        manualChunks: (id) => {
+          if (id.includes('node_modules/react')) return 'vendor-react';
+          if (id.includes('node_modules/lucide-react')) return 'vendor-ui';
+          if (id.includes('node_modules/xlsx')) return 'vendor-xlsx';
+          if (id.includes('node_modules/@azure')) return 'vendor-azure';
+          if (id.includes('node_modules/jsonwebtoken') || id.includes('node_modules/bcryptjs')) return 'vendor-auth';
         },
       },
     },
