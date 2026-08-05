@@ -7,6 +7,18 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'vendor-react': ['react', 'react-dom'],
+          'vendor-ui': ['lucide-react'],
+          'vendor-xlsx': ['xlsx'],
+          'vendor-azure': ['@azure/cosmos', '@azure/msal-browser', '@azure/msal-react'],
+          'vendor-auth': ['jsonwebtoken', 'bcryptjs'],
+        },
+      },
+    },
   },
   server: {
     port: 5173,
