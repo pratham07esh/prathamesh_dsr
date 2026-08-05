@@ -37,6 +37,7 @@ export default function AdminLoginPage({ onAdminLoginSuccess, onBackToLogin }) {
       const data = await response.json();
 
       if (!response.ok) {
+        console.error('Login failed:', data);
         setError(data.message || 'Admin login failed');
         return;
       }
@@ -53,7 +54,8 @@ export default function AdminLoginPage({ onAdminLoginSuccess, onBackToLogin }) {
       }
     } catch (error) {
       console.error('Admin login error:', error);
-      setError('An error occurred. Please try again.');
+      console.error('Error details:', error.message);
+      setError('Backend connection error. Make sure the server is running at http://localhost:3001');
     } finally {
       setLoading(false);
     }
