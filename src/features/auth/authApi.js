@@ -1,7 +1,8 @@
 // Centralized API calls for authentication
-// All endpoints use localhost:3001 for dev (api-server.js)
+// Dynamically detect localhost vs production
 
-const API_BASE_URL = 'http://localhost:3001';
+const isLocalhost = typeof window !== 'undefined' && window.location.hostname === 'localhost';
+export const API_BASE_URL = isLocalhost ? 'http://localhost:3001' : '';
 
 const getAuthHeader = () => {
   const token = localStorage.getItem('authToken');

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Check, X } from 'lucide-react';
+import { API_BASE_URL } from './authApi';
 
 export default function SignUpPage({ onSignUpSuccess, onBackToLogin }) {
   const [formData, setFormData] = useState({
@@ -75,7 +76,7 @@ export default function SignUpPage({ onSignUpSuccess, onBackToLogin }) {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3001/api/auth/register', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

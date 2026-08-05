@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Eye, EyeOff, Shield } from 'lucide-react';
+import { API_BASE_URL } from './authApi';
 
 export default function AdminLoginPage({ onAdminLoginSuccess, onBackToLogin }) {
   const [username, setUsername] = useState('');
@@ -25,7 +26,7 @@ export default function AdminLoginPage({ onAdminLoginSuccess, onBackToLogin }) {
     setLoading(true);
 
     try {
-      const response = await fetch('http://localhost:3001/api/auth/admin-login', {
+      const response = await fetch(`${API_BASE_URL}/api/auth/admin-login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
