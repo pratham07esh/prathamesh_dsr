@@ -60,7 +60,10 @@ export const requireAdmin = (decoded) => {
 export const findUserByUsername = async (container, username) => {
   try {
     const { resources } = await container.items
-      .query(`SELECT * FROM c WHERE c.type = 'user' AND c.username = '${username}'`)
+      .query({
+        query: `SELECT * FROM c WHERE c.type = 'user' AND c.username = @username`,
+        parameters: [{ name: '@username', value: username }]
+      })
       .fetchAll();
     return resources[0] || null;
   } catch (error) {

@@ -54,7 +54,13 @@ export default async function handler(req, res) {
       },
     });
   } catch (error) {
-    console.error('Error during admin login:', error);
-    return res.status(500).json({ message: 'Login failed', success: false });
+    console.error('Error during admin login:', error.message || error);
+    console.error('Stack:', error.stack);
+    return res.status(500).json({
+      message: 'Login failed',
+      success: false,
+      error: error.message,
+      hasEnvVars: !!process.env.COSMOS_CONNECTION_STRING && !!process.env.JWT_SECRET
+    });
   }
 }
