@@ -87,7 +87,7 @@ export const rejectUser = async (userId) => {
 
 // Change user role (admin only)
 export const changeUserRole = async (userId, newRole) => {
-  const response = await fetch(`${API_BASE_URL}/api/auth/role`, {
+  const response = await fetch(`${API_BASE_URL}/api/auth/update`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
@@ -112,7 +112,7 @@ export const deleteUser = async (userId) => {
 
 // Update user permissions (admin only)
 export const updateUserPermissions = async (userId, permissions) => {
-  const response = await fetch(`${API_BASE_URL}/api/auth/permissions`, {
+  const response = await fetch(`${API_BASE_URL}/api/auth/update`, {
     method: 'PUT',
     headers: {
       'Content-Type': 'application/json',
