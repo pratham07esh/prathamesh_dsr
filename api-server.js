@@ -117,7 +117,10 @@ const generateToken = (user) => {
 const findUserByUsername = async (username) => {
   try {
     const { resources } = await container.items
-      .query(`SELECT * FROM c WHERE c.type = 'user' AND c.username = '${username}'`)
+      .query({
+        query: `SELECT * FROM c WHERE c.type = 'user' AND c.username = @username`,
+        parameters: [{ name: '@username', value: username }]
+      })
       .fetchAll();
     return resources[0] || null;
   } catch (error) {
@@ -349,7 +352,62 @@ app.post('/api/auth/admin-login', async (req, res) => {
   }
 });
 
-// Update user permissions (admin only)
+// Update user (role or permissions) - consolidated endpoint
+app.put('/api/auth/update', verifyToken, requireAdmin, async (req, res) => {
+  try {
+    const { userId, newRole, permissions } = req.body;
+
+    if (!userId) {
+      return res.status(400).json({ message: 'User ID is required' });
+    }
+
+    const user = await findUserById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Handle role change
+    if (newRole) {
+      if (!['user', 'admin'].includes(newRole)) {
+        return res.status(400).json({ message: 'Invalid role' });
+      }
+
+      if (user.isSystemAdmin && newRole === 'user') {
+        return res.status(403).json({ message: 'Cannot demote system administrator' });
+      }
+
+      user.role = newRole;
+      await container.item(userId).replace(user);
+      console.log(`✅ User role changed: ${user.username} -> ${newRole}`);
+      return res.json({ success: true, message: `User ${user.username} role changed to ${newRole}` });
+    }
+
+    // Handle permissions change
+    if (permissions) {
+      if (typeof permissions.canAdd !== 'boolean' || typeof permissions.canEdit !== 'boolean' || typeof permissions.canDelete !== 'boolean') {
+        return res.status(400).json({ message: 'Invalid permissions format' });
+      }
+
+      user.permissions = {
+        canAdd: permissions.canAdd,
+        canEdit: permissions.canEdit,
+        canDelete: permissions.canDelete,
+      };
+
+      await container.item(userId).replace(user);
+      console.log(`✅ User permissions updated: ${user.username}`);
+      return res.json({ success: true, message: `Permissions updated for ${user.username}` });
+    }
+
+    return res.status(400).json({ message: 'newRole or permissions required' });
+  } catch (error) {
+    console.error('Error updating user:', error);
+    res.status(500).json({ message: 'Failed to update user', success: false });
+  }
+});
+
+// Update user permissions (admin only) - kept for backwards compatibility
 app.put('/api/auth/permissions', verifyToken, requireAdmin, async (req, res) => {
   try {
     const { userId, permissions } = req.body;
