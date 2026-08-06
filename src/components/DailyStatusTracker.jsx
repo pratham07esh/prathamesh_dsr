@@ -760,14 +760,12 @@ export default function DailyStatusTracker() {
               {currentPage === 'dashboard' && 'Dashboard'}
               {currentPage === 'qa-management' && 'QA Management'}
               {currentPage === 'export' && 'Export Data'}
-              {currentPage === 'access-control' && 'Access Control'}
             </h1>
             <p className="text-lg text-gray-600 mt-1">
               {currentPage === 'home' && 'Track daily work progress and manage QA issues'}
               {currentPage === 'dashboard' && 'Monthly issues summary and statistics'}
               {currentPage === 'qa-management' && 'Manage QA team members'}
               {currentPage === 'export' && 'Export your entries in various formats'}
-              {currentPage === 'access-control' && 'Manage approved users and their access'}
             </p>
           </div>
         </div>
@@ -883,7 +881,6 @@ export default function DailyStatusTracker() {
                   { id: 'dashboard', label: 'Dashboard', icon: '📊' },
                   { id: 'qa-management', label: 'QA Management', icon: '👥' },
                   { id: 'export', label: 'Export Data', icon: '📥' },
-                  { id: 'access-control', label: 'Access Control', icon: '🔐' },
                 ].map((item) => (
                   <button
                     key={item.id}
@@ -1896,140 +1893,6 @@ export default function DailyStatusTracker() {
         )}
 
         {/* ACCESS CONTROL PAGE */}
-        {currentPage === 'access-control' && (
-          <div className="p-8" style={{marginLeft: '60px', marginRight: '60px'}}>
-
-            {/* Pending Access Requests Section */}
-            {isCurrentUserAdmin() && pendingRequests.length > 0 && (
-              <div className="bg-gradient-to-br from-yellow-50 to-orange-50 border-2 border-orange-300 rounded-xl p-8 shadow-lg mb-8">
-                <h2 className="text-3xl font-bold text-black mb-6">📋 Pending Access Requests ({pendingRequests.length})</h2>
-                <div className="space-y-4">
-                  {pendingRequests.map((request) => (
-                    <div key={request.name} className="flex justify-between items-center bg-white p-6 rounded-lg border-2 border-orange-200 hover:shadow-md transition">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3">
-                          <span className="text-3xl">🚀</span>
-                          <div>
-                            <p className="text-black font-bold text-xl">{request.name}</p>
-                            <p className="text-gray-700 text-base">
-                              Requested {new Date(request.requestedAt).toLocaleDateString('en-IN', {
-                                year: 'numeric',
-                                month: 'short',
-                                day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                              })}
-                            </p>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => handleApproveRequest(request.name)}
-                          className="bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition text-base"
-                        >
-                          ✅ Approve
-                        </button>
-                        <button
-                          onClick={() => handleRejectRequest(request.name)}
-                          className="bg-red-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-red-700 transition text-base"
-                        >
-                          ❌ Reject
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Approved Users Section */}
-            <div className="bg-gradient-to-br from-white to-purple-50 border-2 border-gray-300 rounded-xl p-8 shadow-lg mb-8">
-              <h2 className="text-3xl font-bold text-black mb-6">Approved Users ({approvedUsers.length})</h2>
-
-              {approvedUsers.length === 0 ? (
-                <p className="text-gray-600 text-center py-12 text-lg">No approved users yet</p>
-              ) : (
-                <div className="space-y-4">
-                  {approvedUsers.map((user) => (
-                    <div key={user.name} className={`flex justify-between items-center p-6 rounded-lg border-2 transition hover:shadow-lg ${
-                      user.role === 'admin'
-                        ? 'bg-gradient-to-r from-purple-50 to-indigo-50 border-purple-300 shadow-md'
-                        : 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-200'
-                    }`}>
-                      <div className="flex-1">
-                        <div className="flex items-center gap-4">
-                          <div className="flex items-center gap-2">
-                            <span className="text-3xl">👤</span>
-                            <p className="text-black font-bold text-xl">{user.name}</p>
-                          </div>
-                          <span className={`px-4 py-2 rounded-full text-base font-bold flex items-center gap-2 ${
-                            user.role === 'admin'
-                              ? 'bg-purple-300 text-purple-900 shadow-md border-2 border-purple-400'
-                              : 'bg-blue-200 text-blue-800'
-                          }`}>
-                            {user.role === 'admin' ? (
-                              <>
-                                <span className="text-xl">👑</span>
-                                <span>Admin</span>
-                              </>
-                            ) : (
-                              <>
-                                <span className="text-lg">👤</span>
-                                <span>User</span>
-                              </>
-                            )}
-                          </span>
-                        </div>
-                        <p className={`text-base mt-2 ${user.role === 'admin' ? 'text-purple-700' : 'text-gray-700'}`}>
-                          Approved on {new Date(user.approvedAt).toLocaleDateString('en-IN', {
-                            year: 'numeric',
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
-                      </div>
-                      <div className="flex gap-3 items-center">
-                        {currentUser === user.name && (
-                          <span className="bg-blue-600 text-white px-4 py-2 rounded-lg text-base font-bold">
-                            You
-                          </span>
-                        )}
-                        {isCurrentUserAdmin() && (
-                          <select
-                            value={user.role}
-                            onChange={(e) => handleChangeRole(user.name, e.target.value)}
-                            disabled={user.role === 'admin' && getAdminUsers().length === 1}
-                            className="px-4 py-2 border-2 border-gray-300 rounded-lg font-semibold text-sm bg-white disabled:bg-gray-200 disabled:cursor-not-allowed"
-                            title={user.role === 'admin' && getAdminUsers().length === 1 ? 'Cannot demote last admin' : 'Change user role'}
-                          >
-                            <option value="user">User</option>
-                            <option value="admin">Admin</option>
-                          </select>
-                        )}
-                        <button
-                          onClick={() => handleDeleteUser(user.name)}
-                          disabled={!isCurrentUserAdmin() || (user.role === 'admin' && getAdminUsers().length === 1)}
-                          className={`py-3 px-5 rounded-lg transition text-base font-bold ${
-                            isCurrentUserAdmin() && !(user.role === 'admin' && getAdminUsers().length === 1)
-                              ? 'bg-red-600 text-white hover:bg-red-700 cursor-pointer'
-                              : 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                          }`}
-                          title={!isCurrentUserAdmin() ? 'Only admins can delete users' : user.role === 'admin' && getAdminUsers().length === 1 ? 'Cannot delete last admin' : 'Delete user'}
-                        >
-                          🗑️ Delete
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-              
-              </div>
-        )}
           </div>
         </div>
       </div>
