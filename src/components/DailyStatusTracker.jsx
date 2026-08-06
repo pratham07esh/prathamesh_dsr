@@ -445,7 +445,47 @@ export default function DailyStatusTracker() {
     if (confirm('Are you sure you want to logout?')) {
       setCurrentUser(null);
       localStorage.removeItem('currentUser');
+      localStorage.removeItem('authToken');
       setShowNameModal(true);
+    }
+  };
+
+  const handleRefreshPermissions = async () => {
+    try {
+      const token = localStorage.getItem('authToken');
+      if (!token) {
+        alert('❌ No active session found. Please login again.');
+        return;
+      }
+
+      const response = await fetch(`${typeof window !== 'undefined' && window.location.hostname === 'localhost' ? 'http://localhost:3001' : ''}/api/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert('❌ Failed to refresh permissions. Token may have expired. Please login again.');
+        return;
+      }
+
+      // Update current user with latest permissions
+      const updatedUser = {
+        ...currentUser,
+        permissions: data.user.permissions,
+      };
+
+      setCurrentUser(updatedUser);
+      localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+
+      alert('✅ Permissions refreshed successfully!');
+      setShowUserMenu(false);
+    } catch (error) {
+      console.error('Error refreshing permissions:', error);
+      alert('❌ Error refreshing permissions. Please try again.');
     }
   };
 
@@ -789,6 +829,16 @@ export default function DailyStatusTracker() {
                   <p className="text-gray-700 font-bold text-sm">👤 Logged in as</p>
                   <p className="text-gray-900 font-bold text-base">{typeof currentUser === 'object' ? currentUser?.username : currentUser}</p>
                 </div>
+                {typeof currentUser === 'object' && (
+                  <button
+                    onClick={() => {
+                      handleRefreshPermissions();
+                    }}
+                    className="w-full text-left px-4 py-3 text-blue-600 font-bold hover:bg-blue-50 transition flex items-center gap-2 text-base border-t border-gray-200"
+                  >
+                    🔄 Refresh Permissions
+                  </button>
+                )}
                 <button
                   onClick={() => {
                     handleUserLogout();
