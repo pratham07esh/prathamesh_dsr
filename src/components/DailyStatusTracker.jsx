@@ -1225,8 +1225,8 @@ export default function DailyStatusTracker() {
         {/* Edit Modal */}
         {showEditModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white border-2 border-black rounded-lg p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-              <h2 className="text-2xl font-bold text-black mb-6">Edit Entry</h2>
+            <div className="bg-white border-2 border-gray-300 rounded-lg p-8 max-w-3xl w-full max-h-[92vh] overflow-y-auto shadow-lg">
+              <h2 className="text-2xl font-bold text-gray-900 mb-6 pb-4 border-b-2 border-gray-200">Edit Entry</h2>
 
               {/* Ticket Info */}
               <div className="mb-6">
@@ -1238,7 +1238,7 @@ export default function DailyStatusTracker() {
                   onChange={handleInputChange}
                   placeholder="Enter Ticket number"
                   required
-                  className="w-full px-4 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black placeholder-gray-400"
+                  className="w-full px-4 py-2 border-2 border-black-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 placeholder-gray-400 bg-white transition"
                 />
               </div>
 
@@ -1252,7 +1252,7 @@ export default function DailyStatusTracker() {
                   placeholder="Enter Ticket statement"
                   rows="3"
                   required
-                  className="w-full px-4 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black placeholder-gray-400"
+                  className="w-full px-4 py-2 border-2 border-black-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 placeholder-gray-400 bg-white transition"
                 />
               </div>
 
@@ -1264,7 +1264,7 @@ export default function DailyStatusTracker() {
                     name="qaTeamMember"
                     value={formData.qaTeamMember}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black"
+                    className="w-full px-4 py-2 border-2 border-black-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 bg-white transition cursor-pointer"
                   >
                     <option value="">-- Select QA Member --</option>
                     {qaMembers.map(member => (
@@ -1279,7 +1279,7 @@ export default function DailyStatusTracker() {
                     name="ticketStatus"
                     value={formData.ticketStatus}
                     onChange={handleInputChange}
-                    className="w-full px-4 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black"
+                    className="w-full px-4 py-2 border-2 border-black-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 bg-white transition cursor-pointer"
                   >
                     <option value=""></option>
                     <option value="First Pass">First Pass</option>
@@ -1294,12 +1294,12 @@ export default function DailyStatusTracker() {
               </div>
 
               {/* Issues Section */}
-              <div className="bg-gray-300 p-4 rounded-lg mb-6">
-                <h3 className="text-xl font-bold text-black mb-4">Issue Tracking</h3>
+              <div className="bg-blue-50 border-2 border-blue-300 p-6 rounded-lg mb-6">
+                <h3 className="text-lg font-bold text-gray-900 mb-4">Issue Tracking</h3>
 
-                <div className="grid grid-cols-2 md:grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                   <div>
-                    <label className="block text-black font-semibold mb-1 text-base">Missing Content</label>
+                    <label className="block text-gray-700 font-semibold mb-2 text-sm">Missing Content</label>
                     <input
                       type="number"
                       name="missingContent"
@@ -1307,110 +1307,54 @@ export default function DailyStatusTracker() {
                       onChange={handleInputChange}
                       onFocus={(e) => e.target.select()}
                       min="0"
-                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black text-base"
+                      className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-black-800 text-base font-semibold transition"
                     />
                   </div>
                   <div>
-                    <label className="block text-black font-semibold mb-1 text-base">Broken Links</label>
-                    <input
-                      type="number"
-                      name="brokenLinks"
-                      value={formData.brokenLinks}
-                      onChange={handleInputChange}
-                      onFocus={(e) => e.target.select()}
-                      min="0"
-                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black text-base"
-                    />
+                    <label className="block text-gray-700 font-semibold mb-2 text-sm">Broken Links</label>
+                    <input type="number" name="brokenLinks" value={formData.brokenLinks} onChange={handleInputChange} onFocus={(e) => e.target.select()} min="0" className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 text-base font-semibold transition" />
                   </div>
                   <div>
-                    <label className="block text-black font-semibold mb-1 text-base">SEO Issues</label>
-                    <input
-                      type="number"
-                      name="seoIssues"
-                      value={formData.seoIssues}
-                      onChange={handleInputChange}
-                      onFocus={(e) => e.target.select()}
-                      min="0"
-                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black text-base"
-                    />
+                    <label className="block text-gray-700 font-semibold mb-2 text-sm">SEO Issues</label>
+                    <input type="number" name="seoIssues" value={formData.seoIssues} onChange={handleInputChange} onFocus={(e) => e.target.select()} min="0" className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 text-base font-semibold transition" />
                   </div>
                   <div>
-                    <label className="block text-black font-semibold mb-1 text-base">Alt Text Issues/Image Issues</label>
-                    <input
-                      type="number"
-                      name="altTextIssues"
-                      value={formData.altTextIssues}
-                      onChange={handleInputChange}
-                      onFocus={(e) => e.target.select()}
-                      min="0"
-                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black text-base"
-                    />
+                    <label className="block text-gray-700 font-semibold mb-2 text-sm">Alt Text/Images</label>
+                    <input type="number" name="altTextIssues" value={formData.altTextIssues} onChange={handleInputChange} onFocus={(e) => e.target.select()} min="0" className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 text-base font-semibold transition" />
                   </div>
                   <div>
-                    <label className="block text-black font-semibold mb-1 text-base">ARIA Label Issues/CTA Issues</label>
-                    <input
-                      type="number"
-                      name="ariaLabelIssues"
-                      value={formData.ariaLabelIssues}
-                      onChange={handleInputChange}
-                      onFocus={(e) => e.target.select()}
-                      min="0"
-                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black text-base"
-                    />
+                    <label className="block text-gray-700 font-semibold mb-2 text-sm">ARIA/CTA Issues</label>
+                    <input type="number" name="ariaLabelIssues" value={formData.ariaLabelIssues} onChange={handleInputChange} onFocus={(e) => e.target.select()} min="0" className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 text-base font-semibold transition" />
                   </div>
                   <div>
-                    <label className="block text-black font-semibold mb-1 text-base">Trademark Issues</label>
-                    <input
-                      type="number"
-                      name="trademarkIssues"
-                      value={formData.trademarkIssues}
-                      onChange={handleInputChange}
-                      onFocus={(e) => e.target.select()}
-                      min="0"
-                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black text-base"
-                    />
+                    <label className="block text-gray-700 font-semibold mb-2 text-sm">Trademark Issues</label>
+                    <input type="number" name="trademarkIssues" value={formData.trademarkIssues} onChange={handleInputChange} onFocus={(e) => e.target.select()} min="0" className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 text-base font-semibold transition" />
                   </div>
                   <div>
-                    <label className="block text-black font-semibold mb-1 text-base">Disclosure Issues</label>
-                    <input
-                      type="number"
-                      name="disclosureIssues"
-                      value={formData.disclosureIssues}
-                      onChange={handleInputChange}
-                      onFocus={(e) => e.target.select()}
-                      min="0"
-                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black text-base"
-                    />
+                    <label className="block text-gray-700 font-semibold mb-2 text-sm">Disclosure Issues</label>
+                    <input type="number" name="disclosureIssues" value={formData.disclosureIssues} onChange={handleInputChange} onFocus={(e) => e.target.select()} min="0" className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 text-base font-semibold transition" />
                   </div>
                   <div>
-                    <label className="block text-black font-semibold mb-1 text-base">Other (Translations, Typo's, Spacing, etc.)</label>
-                    <input
-                      type="number"
-                      name="otherIssues"
-                      value={formData.otherIssues}
-                      onChange={handleInputChange}
-                      onFocus={(e) => e.target.select()}
-                      min="0"
-                      className="w-full px-3 py-2 border-2 border-black rounded-lg focus:outline-none focus:ring-2 focus:ring-black text-black text-base"
-                    />
+                    <label className="block text-gray-700 font-semibold mb-2 text-sm">Other Issues</label>
+                    <input type="number" name="otherIssues" value={formData.otherIssues} onChange={handleInputChange} onFocus={(e) => e.target.select()} min="0" className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-800 text-base font-semibold transition" />
                   </div>
                 </div>
 
                 {/* Total Issues */}
                 <div>
-                  <label className="block text-black font-semibold mb-1 text-base">Total Issues</label>
+                  <label className="block text-gray-700 font-semibold mb-2 text-sm">Total Issues</label>
                   <input
                     type="number"
                     value={totalIssues}
                     readOnly
-                    className="w-full px-3 py-2 border-2 border-black rounded-lg bg-gray-100 text-black font-bold text-base"
+                    className="w-full px-3 py-2 border-2 border-gray-300 rounded-lg bg-gray-100 text-gray-900 font-bold text-base"
                   />
                 </div>
               </div>
 
               {/* Notes */}
               <div className="mb-6">
-                <label className="block text-black font-semibold mb-2">Notes</label>
+                <label className="block text-gray-700 font-semibold mb-2">Notes</label>
                 <textarea
                   name="notes"
                   value={formData.notes}
@@ -1431,16 +1375,16 @@ export default function DailyStatusTracker() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-4">
+              <div className="flex gap-4 mt-8">
                 <button
                   onClick={handleAddEntry}
-                  className="flex-1 bg-black text-white font-bold py-3 px-4 rounded-lg hover:bg-gray-800 transition"
+                  className="flex-1 bg-blue-600 text-white font-bold py-4 px-6 rounded-lg hover:bg-blue-700 transition text-xl"
                 >
                   Save Changes
                 </button>
                 <button
                   onClick={handleCloseModal}
-                  className="flex-1 bg-gray-400 text-black font-bold py-3 px-4 rounded-lg hover:bg-gray-500 transition"
+                  className="flex-1 bg-gray-400 text-gray-800 font-bold py-4 px-6 rounded-lg hover:bg-gray-500 transition text-xl"
                 >
                   Cancel
                 </button>
