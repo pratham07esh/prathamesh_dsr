@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Shield } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { API_BASE_URL } from './authApi';
 
 export default function AdminLoginPage({ onAdminLoginSuccess, onBackToLogin }) {
@@ -63,108 +63,362 @@ export default function AdminLoginPage({ onAdminLoginSuccess, onBackToLogin }) {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-purple-50 to-indigo-100">
-      {/* Header */}
-      <div className="py-8 px-8 text-center border-b-2 border-purple-200 bg-white shadow-sm">
-        <div className="flex items-center justify-center gap-3 mb-2">
-          <Shield size={40} className="text-purple-600" />
-          <h1 className="text-5xl font-bold text-gray-900">Admin Dashboard</h1>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'white' }}>
+      <style>{`
+        .branding-section {
+          flex: 1;
+          background: linear-gradient(180deg, #1a2942 0%, #0d1b2a 100%);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 60px;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .branding-section::before {
+          content: '';
+          position: absolute;
+          width: 400px;
+          height: 400px;
+          background: radial-gradient(circle, rgba(167, 139, 250, 0.15) 0%, transparent 70%);
+          border-radius: 50%;
+          top: -100px;
+          right: -100px;
+          animation: float1 8s ease-in-out infinite;
+          z-index: 0;
+        }
+
+        .branding-section::after {
+          content: '';
+          position: absolute;
+          width: 300px;
+          height: 300px;
+          background: radial-gradient(circle, rgba(99, 102, 241, 0.1) 0%, transparent 70%);
+          border-radius: 50%;
+          bottom: -50px;
+          left: -50px;
+          animation: float2 10s ease-in-out infinite;
+          z-index: 0;
+        }
+
+        @keyframes float1 {
+          0%, 100% { transform: translateY(0px) translateX(0px); }
+          50% { transform: translateY(-30px) translateX(-20px); }
+        }
+
+        @keyframes float2 {
+          0%, 100% { transform: translateY(0px) translateX(0px); }
+          50% { transform: translateY(20px) translateX(20px); }
+        }
+
+        /* Base diagonal lines pattern */
+        .branding-section {
+          background:
+            linear-gradient(45deg, transparent 45%, rgba(167, 139, 250, 0.05) 45%, rgba(167, 139, 250, 0.05) 55%, transparent 55%),
+            linear-gradient(-45deg, transparent 45%, rgba(99, 102, 241, 0.04) 45%, rgba(99, 102, 241, 0.04) 55%, transparent 55%),
+            linear-gradient(180deg, #1a2942 0%, #0d1b2a 100%);
+          background-size: 60px 60px, 80px 80px, 100% 100%;
+          background-position: 0 0, 20px 20px, 0 0;
+        }
+
+        .branding-content {
+          position: relative;
+          z-index: 1;
+          text-align: center;
+          color: white;
+          max-width: 400px;
+        }
+
+        .shield-icon {
+          width: 100px;
+          height: 100px;
+          margin: 0 auto 30px auto;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: linear-gradient(135deg, #a78bfa 0%, #6366f1 100%);
+          border-radius: 16px;
+          font-size: 50px;
+        }
+
+        .branding-content h1 {
+          font-size: 48px;
+          font-weight: bold;
+          margin-bottom: 12px;
+          text-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+          line-height: 1.2;
+        }
+
+        .branding-content .subtitle {
+          font-size: 16px;
+          color: rgba(255, 255, 255, 0.8);
+          margin-bottom: 24px;
+          text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+          font-weight: 600;
+        }
+
+        .branding-content p {
+          font-size: 15px;
+          color: rgba(255, 255, 255, 0.75);
+          line-height: 1.6;
+          text-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        .form-section {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 40px;
+          background: #f9fafb;
+        }
+
+        .form-container {
+          width: 100%;
+          max-width: 450px;
+        }
+
+        .warning-banner {
+          background-color: #fef3c7;
+          border: 2px solid #fcd34d;
+          border-radius: 8px;
+          padding: 16px;
+          margin-bottom: 24px;
+          color: #92400e;
+          font-weight: 600;
+          font-size: 14px;
+          text-align: center;
+        }
+
+        .card {
+          background: white;
+          border: 2px solid #e5e7eb;
+          border-radius: 16px;
+          padding: 48px;
+          box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+          transition: box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+          box-shadow: 0 15px 50px rgba(0, 0, 0, 0.12);
+        }
+
+        .card-title {
+          font-size: 30px;
+          font-weight: bold;
+          color: #7c3aed;
+          text-align: center;
+          margin-bottom: 32px;
+        }
+
+        .form-group {
+          margin-bottom: 24px;
+        }
+
+        .form-label {
+          font-size: 16px;
+          font-weight: 600;
+          color: #374151;
+          margin-bottom: 8px;
+          display: block;
+        }
+
+        .input-field {
+          width: 100%;
+          padding: 12px 16px;
+          border: 2px solid #e5e7eb;
+          border-radius: 8px;
+          font-size: 16px;
+          color: #000;
+          transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+          outline: none;
+          border-color: #7c3aed;
+          box-shadow: 0 0 0 3px rgba(124, 58, 237, 0.1);
+        }
+
+        .password-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+
+        .password-toggle {
+          position: absolute;
+          right: 12px;
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: #9ca3af;
+          font-size: 20px;
+          transition: color 0.2s ease;
+        }
+
+        .password-toggle:hover {
+          color: #6b7280;
+        }
+
+        .btn {
+          width: 100%;
+          padding: 14px 24px;
+          border: none;
+          border-radius: 8px;
+          font-size: 16px;
+          font-weight: bold;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          margin-bottom: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+
+        .btn:disabled {
+          cursor: not-allowed;
+          opacity: 0.7;
+        }
+
+        .btn-primary {
+          background-color: #a78bfa;
+          color: white;
+          box-shadow: 0 4px 6px rgba(167, 139, 250, 0.2);
+          border: 2px solid #a78bfa;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+          background-color: #9370db;
+          box-shadow: 0 6px 12px rgba(167, 139, 250, 0.3);
+        }
+
+        .btn-secondary {
+          background: white;
+          color: #7c3aed;
+          border: 2px solid #7c3aed;
+          font-weight: 600;
+        }
+
+        .btn-secondary:hover:not(:disabled) {
+          background-color: #f3e8ff;
+        }
+
+        .error-message {
+          background-color: #fee2e2;
+          border: 2px solid #fca5a5;
+          border-radius: 8px;
+          padding: 16px;
+          margin-bottom: 24px;
+          color: #991b1b;
+          font-weight: 600;
+          font-size: 14px;
+        }
+
+        .footer {
+          text-align: center;
+          margin-top: 24px;
+        }
+
+        @media (max-width: 1024px) {
+          .branding-section {
+            display: none;
+          }
+          .form-section {
+            padding: 20px;
+          }
+        }
+      `}</style>
+
+      {/* BRANDING SECTION (LEFT) */}
+      <div className="branding-section">
+        <div className="branding-content">
+          <div className="shield-icon">🛡️</div>
+          <h1>Admin Dashboard</h1>
+          <p className="subtitle">Administrator Access Required</p>
+          <p>This high-security access is restricted to authorized personnel for work progress tracking and quality assurance management. All activities are monitored and logged.</p>
         </div>
-        <p className="text-lg text-gray-600 mt-2">Administrator Access Required</p>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-md">
-          {/* Admin Login Card */}
-          <div className="bg-white border-2 border-purple-400 rounded-xl p-10 shadow-2xl hover:shadow-2xl transition">
-            <div className="flex items-center justify-center gap-3 mb-8">
-              <div className="bg-purple-100 p-3 rounded-full">
-                <Shield size={32} className="text-purple-600" />
-              </div>
-              <h2 className="text-3xl font-bold text-gray-900">Admin Login</h2>
-            </div>
+      {/* FORM SECTION (RIGHT) */}
+      <div className="form-section">
+        <div className="form-container">
+          {/* WARNING BANNER */}
+          <div className="warning-banner">
+            This section is restricted to administrators only. Unauthorized access attempts will be logged.
+          </div>
 
-            {/* Warning Banner */}
-            <div className="mb-6 bg-amber-50 border-2 border-amber-300 rounded-lg p-4">
-              <p className="text-amber-800 font-semibold text-sm">
-                ⚠️ This section is restricted to administrators only. Unauthorized access attempts will be logged.
-              </p>
-            </div>
+          {/* LOGIN CARD */}
+          <div className="card">
+            <h2 className="card-title">Admin Login</h2>
 
-            {/* Error Message */}
+            {/* ERROR MESSAGE */}
             {error && (
-              <div className="mb-6 bg-red-50 border-2 border-red-300 rounded-lg p-4">
-                <p className="text-red-700 font-semibold text-sm">{error}</p>
-              </div>
+              <div className="error-message">{error}</div>
             )}
 
-            {/* Admin Login Form */}
-            <form onSubmit={handleAdminLogin} className="space-y-6">
-              {/* Username Field */}
-              <div>
-                <label className="block text-gray-900 font-bold mb-3 text-lg">Admin Username</label>
+            {/* LOGIN FORM */}
+            <form onSubmit={handleAdminLogin}>
+              {/* USERNAME FIELD */}
+              <div className="form-group">
+                <label className="form-label">Admin Username</label>
                 <input
                   type="text"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   placeholder="Enter admin username"
-                  className="w-full px-4 py-3 border-2 border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent text-black placeholder-gray-400 text-lg"
+                  className="input-field"
                   disabled={loading}
                 />
               </div>
 
-              {/* Password Field */}
-              <div>
-                <label className="block text-gray-900 font-bold mb-3 text-lg">Admin Password</label>
-                <div className="relative">
+              {/* PASSWORD FIELD */}
+              <div className="form-group">
+                <label className="form-label">Admin Password</label>
+                <div className="password-wrapper">
                   <input
                     type={showPassword ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter admin password"
-                    className="w-full px-4 py-3 border-2 border-purple-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-purple-600 focus:border-transparent text-black placeholder-gray-400 text-lg"
+                    className="input-field"
                     disabled={loading}
+                    style={{ paddingRight: '40px' }}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-gray-500 hover:text-gray-700 transition"
+                    className="password-toggle"
                   >
-                    {showPassword ? <EyeOff size={24} /> : <Eye size={24} />}
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                   </button>
                 </div>
               </div>
 
-              {/* Login Button */}
+              {/* LOGIN BUTTON */}
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-purple-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-purple-700 transition disabled:bg-purple-400 disabled:cursor-not-allowed text-lg shadow-md hover:shadow-lg"
+                className="btn btn-primary"
               >
-                {loading ? 'Verifying Credentials...' : '👑 Admin Login'}
+                👑 {loading ? 'Verifying Credentials...' : 'Admin Login'}
               </button>
             </form>
 
-            {/* Divider */}
-            <div className="my-6 flex items-center gap-4">
-              <div className="flex-1 h-px bg-gray-300"></div>
-              <span className="text-gray-600 font-semibold">or</span>
-              <div className="flex-1 h-px bg-gray-300"></div>
+            {/* FOOTER */}
+            <div className="footer">
+              <button
+                type="button"
+                onClick={onBackToLogin}
+                disabled={loading}
+                className="btn btn-secondary"
+              >
+                ← Back to User Login
+              </button>
             </div>
-
-            {/* Back to User Login */}
-            <button
-              onClick={onBackToLogin}
-              disabled={loading}
-              className="w-full bg-gray-200 text-gray-900 font-bold py-3 px-6 rounded-lg hover:bg-gray-300 transition disabled:bg-gray-100 disabled:cursor-not-allowed text-lg"
-            >
-              ← Back to User Login
-            </button>
           </div>
-
-          
-          
         </div>
       </div>
     </div>

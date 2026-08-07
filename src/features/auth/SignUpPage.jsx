@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Eye, EyeOff, Check, X } from 'lucide-react';
+import { Eye, EyeOff } from 'lucide-react';
 import { API_BASE_URL } from './authApi';
 
 export default function SignUpPage({ onSignUpSuccess, onBackToLogin }) {
@@ -114,235 +114,475 @@ export default function SignUpPage({ onSignUpSuccess, onBackToLogin }) {
   };
 
   return (
-    <div className="flex flex-col min-h-screen bg-gradient-to-br from-green-50 to-emerald-100">
-      {/* Header */}
-      <div className="py-8 px-8 text-center border-b-2 border-green-200 bg-white shadow-sm">
-        <h1 className="text-5xl font-bold text-gray-900">Daily Status Tracker</h1>
-        <p className="text-lg text-gray-600 mt-2">Create your account to get started</p>
+    <div style={{ display: 'flex', minHeight: '100vh', background: 'white' }}>
+      <style>{`
+        .branding-section {
+          flex: 1;
+          background: linear-gradient(135deg, #0d47a1 0%, #1565c0 20%, #0d7fa5 50%, #00897b 80%, #26a69a 100%);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          justify-content: center;
+          padding: 60px;
+          position: relative;
+          overflow: hidden;
+        }
+
+        .branding-section::before {
+          content: '';
+          position: absolute;
+          top: -50%;
+          right: -10%;
+          width: 150%;
+          height: 150%;
+          background:
+            linear-gradient(45deg, transparent 30%, rgba(255, 255, 255, 0.08) 31%, rgba(255, 255, 255, 0.08) 33%, transparent 34%),
+            linear-gradient(45deg, transparent 65%, rgba(255, 255, 255, 0.08) 66%, rgba(255, 255, 255, 0.08) 68%, transparent 69%),
+            linear-gradient(135deg, transparent 25%, rgba(255, 255, 255, 0.1) 26%, rgba(255, 255, 255, 0.1) 28%, transparent 29%),
+            linear-gradient(135deg, transparent 50%, rgba(255, 255, 255, 0.08) 51%, rgba(255, 255, 255, 0.08) 53%, transparent 54%);
+          background-size: 300px 300px, 400px 400px, 350px 350px, 450px 450px;
+          background-position: 0 0, 50px 50px, 100px 0, 150px 100px;
+          z-index: 0;
+          animation: drift 30s linear infinite;
+        }
+
+        .branding-section::after {
+          content: '';
+          position: absolute;
+          top: 0;
+          right: 0;
+          width: 100%;
+          height: 100%;
+          background:
+            linear-gradient(120deg, transparent 0%, rgba(255, 255, 255, 0.05) 45%, rgba(255, 255, 255, 0.05) 50%, transparent 100%),
+            linear-gradient(240deg, transparent 0%, rgba(255, 255, 255, 0.04) 45%, rgba(255, 255, 255, 0.04) 50%, transparent 100%);
+          z-index: 0;
+        }
+
+        @keyframes drift {
+          0% { background-position: 0 0, 50px 50px, 100px 0, 150px 100px; }
+          100% { background-position: 300px 300px, 350px 350px, 400px 300px, 450px 400px; }
+        }
+
+        .branding-content {
+          position: relative;
+          z-index: 1;
+          text-align: center;
+          color: white;
+        }
+
+        .branding-content h1 {
+          font-size: 56px;
+          font-weight: bold;
+          margin-bottom: 16px;
+          text-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .branding-content p {
+          font-size: 20px;
+          color: rgba(255, 255, 255, 0.95);
+          text-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        .form-section {
+          flex: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 40px;
+          background: #f9fafb;
+        }
+
+        .form-container {
+          width: 100%;
+          max-width: 450px;
+        }
+
+        .card {
+          background: white;
+          border-radius: 16px;
+          padding: 48px;
+          box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08);
+          transition: box-shadow 0.3s ease;
+        }
+
+        .card:hover {
+          box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
+        }
+
+        .card-title {
+          font-size: 28px;
+          font-weight: bold;
+          color: #111827;
+          text-align: center;
+          margin-bottom: 32px;
+        }
+
+        .form-group {
+          margin-bottom: 24px;
+        }
+
+        .form-label {
+          font-size: 16px;
+          font-weight: 600;
+          color: #111827;
+          margin-bottom: 8px;
+          display: block;
+        }
+
+        .helper-text {
+          font-size: 13px;
+          color: #6b7280;
+          margin-top: 6px;
+        }
+
+        .input-field {
+          width: 100%;
+          padding: 12px 16px;
+          border: 2px solid #d1d5db;
+          border-radius: 8px;
+          font-size: 16px;
+          color: #000;
+          transition: all 0.3s ease;
+        }
+
+        .input-field:focus {
+          outline: none;
+          border-color: #10b981;
+          box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+
+        .input-field.error {
+          border-color: #ef4444;
+        }
+
+        .password-wrapper {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+
+        .password-toggle {
+          position: absolute;
+          right: 12px;
+          background: none;
+          border: none;
+          cursor: pointer;
+          color: #6b7280;
+          font-size: 20px;
+          transition: color 0.2s ease;
+        }
+
+        .password-toggle:hover {
+          color: #374151;
+        }
+
+        .input-error {
+          color: #dc2626;
+          font-size: 13px;
+          margin-top: 4px;
+        }
+
+        .requirements {
+          background: #f0fdf4;
+          border: 2px solid #bbf7d0;
+          border-radius: 8px;
+          padding: 16px;
+          margin-bottom: 24px;
+          display: none;
+        }
+
+        .requirements.show {
+          display: block;
+        }
+
+        .requirements-title {
+          font-size: 14px;
+          font-weight: 600;
+          color: #166534;
+          margin-bottom: 12px;
+        }
+
+        .requirement-item {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 13px;
+          margin-bottom: 6px;
+          color: #6b7280;
+        }
+
+        .requirement-item.met {
+          color: #10b981;
+        }
+
+        .requirement-check {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 16px;
+          height: 16px;
+          border-radius: 3px;
+          background-color: #e5e7eb;
+          font-size: 11px;
+        }
+
+        .requirement-item.met .requirement-check {
+          background-color: #10b981;
+          color: white;
+        }
+
+        .btn {
+          width: 100%;
+          padding: 16px;
+          border: none;
+          border-radius: 8px;
+          font-size: 16px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.3s ease;
+          margin-bottom: 16px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
+        }
+
+        .btn:disabled {
+          cursor: not-allowed;
+          opacity: 0.7;
+        }
+
+        .btn-primary {
+          background-color: #10b981;
+          color: white;
+          box-shadow: 0 4px 6px rgba(16, 185, 129, 0.2);
+        }
+
+        .btn-primary:hover:not(:disabled) {
+          background-color: #059669;
+          box-shadow: 0 6px 12px rgba(16, 185, 129, 0.3);
+        }
+
+        .success-message {
+          background-color: #dcfce7;
+          border: 2px solid #86efac;
+          border-radius: 8px;
+          padding: 16px;
+          margin-bottom: 24px;
+          color: #166534;
+          font-weight: 600;
+          font-size: 14px;
+        }
+
+        .footer {
+          text-align: center;
+          margin-top: 24px;
+        }
+
+        .footer-text {
+          font-size: 14px;
+          color: #4b5563;
+          font-weight: 600;
+        }
+
+        .footer-link {
+          color: #10b981;
+          text-decoration: none;
+          font-weight: bold;
+          transition: color 0.2s ease;
+          cursor: pointer;
+          background: none;
+          border: none;
+          padding: 0;
+        }
+
+        .footer-link:hover {
+          color: #059669;
+          text-decoration: underline;
+        }
+
+        .error-message {
+          background-color: #fee2e2;
+          border: 2px solid #fca5a5;
+          border-radius: 8px;
+          padding: 16px;
+          margin-bottom: 24px;
+          color: #991b1b;
+          font-weight: 600;
+          font-size: 14px;
+        }
+
+        @media (max-width: 1024px) {
+          .branding-section {
+            display: none;
+          }
+          .form-section {
+            padding: 20px;
+          }
+        }
+      `}</style>
+
+      {/* BRANDING SECTION (LEFT) */}
+      <div className="branding-section">
+        <div className="branding-content">
+          <h1>Daily Status Tracker</h1>
+          <p>Track work, manage QA, stay organized</p>
+        </div>
       </div>
 
-      {/* Main Content */}
-      <div className="flex-1 flex items-center justify-center px-4 py-12">
-        <div className="w-full max-w-2xl">
-          {/* Success Message */}
+      {/* FORM SECTION (RIGHT) */}
+      <div className="form-section">
+        <div className="form-container">
+          {/* SUCCESS MESSAGE */}
           {successMessage && (
-            <div className="mb-8 bg-green-50 border-2 border-green-300 rounded-xl p-6 shadow-lg">
-              <div className="flex items-start gap-4">
-                <div className="text-3xl">✅</div>
-                <div>
-                  <h3 className="text-xl font-bold text-green-900 mb-2">Registration Submitted!</h3>
-                  <p className="text-green-700 font-semibold">{successMessage}</p>
-                  <button
-                    onClick={onBackToLogin}
-                    className="mt-4 text-green-700 hover:text-green-900 font-bold underline"
-                  >
-                    Return to Login →
-                  </button>
-                </div>
+            <div style={{ marginBottom: '24px' }}>
+              <div className="success-message">
+                <div style={{ marginBottom: '12px', fontSize: '18px' }}>✅ Registration Submitted!</div>
+                <div>{successMessage}</div>
               </div>
             </div>
           )}
 
           {!successMessage && (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-              {/* Sign Up Form */}
-              <div className="lg:col-span-2">
-                <div className="bg-white border-2 border-green-300 rounded-xl p-10 shadow-xl">
-                  <h2 className="text-3xl font-bold text-gray-900 mb-8">Create Account</h2>
+            <div className="card">
+              <h2 className="card-title">Create Account</h2>
 
-                  {/* Server Error */}
-                  {errors.server && (
-                    <div className="mb-6 bg-red-50 border-2 border-red-300 rounded-lg p-4">
-                      <p className="text-red-700 font-semibold text-sm">{errors.server}</p>
-                    </div>
+              {/* ERROR MESSAGE */}
+              {errors.server && (
+                <div className="error-message">{errors.server}</div>
+              )}
+
+              {/* SIGNUP FORM */}
+              <form onSubmit={handleSignUp}>
+                {/* USERNAME FIELD */}
+                <div className="form-group">
+                  <label className="form-label">
+                    Username <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <input
+                    type="text"
+                    name="username"
+                    value={formData.username}
+                    onChange={handleChange}
+                    placeholder="Choose a unique username"
+                    className={`input-field ${errors.username ? 'error' : ''}`}
+                    disabled={loading}
+                  />
+                  {errors.username && (
+                    <div className="input-error">{errors.username}</div>
                   )}
+                  <p className="helper-text">3+ characters, letters/numbers/underscore/hyphen only</p>
+                </div>
 
-                  <form onSubmit={handleSignUp} className="space-y-6">
-                    {/* Username Field */}
-                    <div>
-                      <label className="block text-gray-900 font-bold mb-3 text-lg">
-                        Username <span className="text-red-600">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        name="username"
-                        value={formData.username}
-                        onChange={handleChange}
-                        placeholder="Choose a unique username"
-                        className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-black placeholder-gray-400 text-lg transition ${
-                          errors.username ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        disabled={loading}
-                      />
-                      {errors.username && (
-                        <p className="text-red-600 font-semibold text-sm mt-2">{errors.username}</p>
-                      )}
-                      <p className="text-gray-500 text-sm mt-2">3+ characters, letters/numbers/underscore/hyphen only</p>
-                    </div>
-
-                    {/* Password Field */}
-                    <div>
-                      <label className="block text-gray-900 font-bold mb-3 text-lg">
-                        Password <span className="text-red-600">*</span>
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showPassword ? 'text' : 'password'}
-                          name="password"
-                          value={formData.password}
-                          onChange={handleChange}
-                          placeholder="Create a strong password"
-                          className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-black placeholder-gray-400 text-lg transition ${
-                            errors.password ? 'border-red-500' : 'border-gray-300'
-                          }`}
-                          disabled={loading}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowPassword(!showPassword)}
-                          className="absolute right-3 top-3 text-gray-500 hover:text-gray-700 transition"
-                        >
-                          {showPassword ? <EyeOff size={24} /> : <Eye size={24} />}
-                        </button>
-                      </div>
-                      {errors.password && (
-                        <p className="text-red-600 font-semibold text-sm mt-2">{errors.password}</p>
-                      )}
-                    </div>
-
-                    {/* Confirm Password Field */}
-                    <div>
-                      <label className="block text-gray-900 font-bold mb-3 text-lg">
-                        Re-enter Password <span className="text-red-600">*</span>
-                      </label>
-                      <div className="relative">
-                        <input
-                          type={showConfirmPassword ? 'text' : 'password'}
-                          name="confirmPassword"
-                          value={formData.confirmPassword}
-                          onChange={handleChange}
-                          placeholder="Re-enter your password"
-                          className={`w-full px-4 py-3 border-2 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 text-black placeholder-gray-400 text-lg transition ${
-                            errors.confirmPassword ? 'border-red-500' : 'border-gray-300'
-                          }`}
-                          disabled={loading}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                          className="absolute right-3 top-3 text-gray-500 hover:text-gray-700 transition"
-                        >
-                          {showConfirmPassword ? <EyeOff size={24} /> : <Eye size={24} />}
-                        </button>
-                      </div>
-                      {errors.confirmPassword && (
-                        <p className="text-red-600 font-semibold text-sm mt-2">{errors.confirmPassword}</p>
-                      )}
-                      {formData.confirmPassword && passwordsMatch && (
-                        <p className="text-green-600 font-semibold text-sm mt-2 flex items-center gap-2">
-                          <Check size={18} /> Passwords match
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Submit Button */}
-                    <button
-                      type="submit"
-                      disabled={loading || !isPasswordStrong}
-                      className="w-full bg-green-600 text-white font-bold py-3 px-6 rounded-lg hover:bg-green-700 transition disabled:bg-green-400 disabled:cursor-not-allowed text-lg shadow-md hover:shadow-lg mt-8"
-                    >
-                      {loading ? 'Creating Account...' : '✨ Create Account'}
-                    </button>
-                  </form>
-
-                  {/* Back to Login */}
-                  <div className="mt-6 text-center">
-                    <button
-                      onClick={onBackToLogin}
+                {/* PASSWORD FIELD */}
+                <div className="form-group">
+                  <label className="form-label">
+                    Password <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <div className="password-wrapper">
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      name="password"
+                      value={formData.password}
+                      onChange={handleChange}
+                      placeholder="Create a strong password"
+                      className={`input-field ${errors.password ? 'error' : ''}`}
                       disabled={loading}
-                      className="text-green-600 hover:text-green-800 font-bold underline disabled:opacity-50 disabled:cursor-not-allowed transition"
+                      style={{ paddingRight: '40px' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="password-toggle"
                     >
-                      ← Back to Login
+                      {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
                     </button>
                   </div>
+                  {errors.password && (
+                    <div className="input-error">{errors.password}</div>
+                  )}
                 </div>
-              </div>
 
-              {/* Password Requirements Sidebar */}
-              <div className="lg:col-span-1">
-                <div className="bg-white border-2 border-amber-300 rounded-xl p-6 shadow-lg sticky top-8">
-                  <h3 className="text-xl font-bold text-amber-900 mb-4 flex items-center gap-2">
-                    🔐 Password Requirements
-                  </h3>
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2">
-                      {passwordRequirements.minLength ? (
-                        <Check size={20} className="text-green-600" />
-                      ) : (
-                        <X size={20} className="text-gray-400" />
-                      )}
-                      <span className={`text-sm font-semibold ${passwordRequirements.minLength ? 'text-green-600' : 'text-gray-600'}`}>
-                        At least 8 characters
-                      </span>
+                {/* PASSWORD REQUIREMENTS */}
+                {formData.password.length > 0 && (
+                  <div className={`requirements show`}>
+                    <div className="requirements-title">Password Requirements</div>
+                    <div className={`requirement-item ${passwordRequirements.minLength ? 'met' : ''}`}>
+                      <span className="requirement-check">✓</span> At least 8 characters
                     </div>
-                    <div className="flex items-center gap-2">
-                      {passwordRequirements.hasUppercase ? (
-                        <Check size={20} className="text-green-600" />
-                      ) : (
-                        <X size={20} className="text-gray-400" />
-                      )}
-                      <span className={`text-sm font-semibold ${passwordRequirements.hasUppercase ? 'text-green-600' : 'text-gray-600'}`}>
-                        One uppercase letter (A-Z)
-                      </span>
+                    <div className={`requirement-item ${passwordRequirements.hasUppercase ? 'met' : ''}`}>
+                      <span className="requirement-check">✓</span> One uppercase letter
                     </div>
-                    <div className="flex items-center gap-2">
-                      {passwordRequirements.hasLowercase ? (
-                        <Check size={20} className="text-green-600" />
-                      ) : (
-                        <X size={20} className="text-gray-400" />
-                      )}
-                      <span className={`text-sm font-semibold ${passwordRequirements.hasLowercase ? 'text-green-600' : 'text-gray-600'}`}>
-                        One lowercase letter (a-z)
-                      </span>
+                    <div className={`requirement-item ${passwordRequirements.hasLowercase ? 'met' : ''}`}>
+                      <span className="requirement-check">✓</span> One lowercase letter
                     </div>
-                    <div className="flex items-center gap-2">
-                      {passwordRequirements.hasNumber ? (
-                        <Check size={20} className="text-green-600" />
-                      ) : (
-                        <X size={20} className="text-gray-400" />
-                      )}
-                      <span className={`text-sm font-semibold ${passwordRequirements.hasNumber ? 'text-green-600' : 'text-gray-600'}`}>
-                        One number (0-9)
-                      </span>
+                    <div className={`requirement-item ${passwordRequirements.hasNumber ? 'met' : ''}`}>
+                      <span className="requirement-check">✓</span> One number
                     </div>
-                    <div className="flex items-center gap-2">
-                      {passwordRequirements.hasSpecialChar ? (
-                        <Check size={20} className="text-green-600" />
-                      ) : (
-                        <X size={20} className="text-gray-400" />
-                      )}
-                      <span className={`text-sm font-semibold ${passwordRequirements.hasSpecialChar ? 'text-green-600' : 'text-gray-600'}`}>
-                        One special character (!@#$%^&*, etc)
-                      </span>
+                    <div className={`requirement-item ${passwordRequirements.hasSpecialChar ? 'met' : ''}`}>
+                      <span className="requirement-check">✓</span> One special character (!@#$%^&*)
                     </div>
                   </div>
+                )}
 
-                  {/* Password Match Status */}
-                  {formData.confirmPassword && (
-                    <div className="mt-6 pt-6 border-t-2 border-gray-200">
-                      <div className="flex items-center gap-2">
-                        {passwordsMatch ? (
-                          <Check size={20} className="text-green-600" />
-                        ) : (
-                          <X size={20} className="text-red-600" />
-                        )}
-                        <span className={`text-sm font-semibold ${passwordsMatch ? 'text-green-600' : 'text-red-600'}`}>
-                          Passwords match
-                        </span>
-                      </div>
+                {/* CONFIRM PASSWORD FIELD */}
+                <div className="form-group">
+                  <label className="form-label">
+                    Re-enter Password <span style={{ color: '#ef4444' }}>*</span>
+                  </label>
+                  <div className="password-wrapper">
+                    <input
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      name="confirmPassword"
+                      value={formData.confirmPassword}
+                      onChange={handleChange}
+                      placeholder="Re-enter your password"
+                      className={`input-field ${errors.confirmPassword ? 'error' : ''}`}
+                      disabled={loading}
+                      style={{ paddingRight: '40px' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                      className="password-toggle"
+                    >
+                      {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                    </button>
+                  </div>
+                  {errors.confirmPassword && (
+                    <div className="input-error">{errors.confirmPassword}</div>
+                  )}
+                  {formData.confirmPassword && passwordsMatch && (
+                    <div style={{ color: '#10b981', fontSize: '13px', marginTop: '4px', fontWeight: '600' }}>
+                      ✓ Passwords match
                     </div>
                   )}
                 </div>
+
+                {/* SUBMIT BUTTON */}
+                <button
+                  type="submit"
+                  disabled={loading || !isPasswordStrong}
+                  className="btn btn-primary"
+                >
+                  ⭐ {loading ? 'Creating Account...' : 'Create Account'}
+                </button>
+              </form>
+
+              {/* FOOTER */}
+              <div className="footer">
+                <p className="footer-text">
+                  Already have an account?{' '}
+                  <button
+                    type="button"
+                    onClick={onBackToLogin}
+                    disabled={loading}
+                    className="footer-link"
+                  >
+                    Back to Login
+                  </button>
+                </p>
               </div>
             </div>
           )}
